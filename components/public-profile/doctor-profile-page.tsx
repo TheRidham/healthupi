@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,11 +34,13 @@ import {
   CalendarCheck,
   ShieldCheck,
   RotateCcw,
+  LogIn,
 } from "lucide-react"
 import { addDays, format, isSameDay, startOfToday } from "date-fns"
 import { BookingModal } from "./booking-modal"
 import { PaymentSuccess } from "./payment-success"
 import { Header } from "@/components/header"
+import { useAuth } from "@/lib/auth-context"
 
 interface DoctorProfilePageProps {
   doctorId?: string
@@ -45,23 +48,23 @@ interface DoctorProfilePageProps {
 
 /* ── Doctor mock data ─────────────────────────────────────── */
 const DOCTOR = {
-  name: "Dr. Andrew Mitchell",
+  name: "Dr. Rahul Sharma",
   title: "Senior Consultant",
   specialization: "Internal Medicine",
   subSpecialization: "Cardiology",
   experience: "15 years",
   qualifications: ["MD", "MBBS", "FACC", "Board Certified"],
-  registrationNumber: "MED-2011-48293",
-  clinicName: "Mitchell Cardiology Center",
-  hospital: "St. Mary's Medical Center",
-  address: "1234 Medical Plaza, Suite 200, San Francisco, CA 94102",
-  phone: "+1 (415) 555-0192",
-  website: "www.mitchellcardiology.com",
+  registrationNumber: "MCI-2011-48293",
+  clinicName: "Sharma Cardiology Center",
+  hospital: "Apollo Hospital",
+  address: "1234 Medical Plaza, Suite 200, Connaught Place, New Delhi, Delhi 110001",
+  phone: "+91 98765 43210",
+  website: "www.sharmaCardiology.com",
   rating: 4.9,
   reviewCount: 842,
   patientsServed: "3,200+",
   bio: "Experienced cardiologist with over 15 years of practice in interventional cardiology and preventive heart care. Passionate about leveraging telemedicine to improve patient access to quality healthcare.",
-  languages: ["English", "Spanish", "Hindi"],
+  languages: ["English", "Hindi", "Tamil"],
   avatar: "/images/doctor-avatar.jpg",
   galleryImages: [
     { src: "/images/clinic-1.jpg", alt: "Examination room" },
@@ -118,6 +121,8 @@ type ViewMode = "main" | "booking" | "followup" | "success"
 type TabMode = "book" | "followup" | "profile"
 
 export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
+  const router = useRouter()
+  const { user } = useAuth()
   const today = startOfToday()
   
   // TODO: Replace with actual API call when backend is ready
@@ -142,6 +147,25 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   // Follow-up specific
   const [isFollowUp, setIsFollowUp] = useState(false)
 
+  // Check localStorage for pending booking after login
+  useEffect(() => {
+    const pendingBooking = localStorage.getItem("pending_booking")
+    if (pendingBooking && user && user.role === "patient") {
+      const booking = JSON.parse(pendingBooking)
+      // Find the matching service from SERVICES or FOLLOWUP_SERVICES
+      const allServices = [...SERVICES, ...FOLLOWUP_SERVICES]
+      const service = allServices.find(s => s.id === booking.serviceId)
+      if (service) {
+        setSelectedService(service)
+        setSelectedDay(new Date(booking.date))
+        setSelectedSlot(booking.timeSlot)
+        setIsFollowUp(booking.serviceType === "followup")
+        setShowBookingModal(true)
+      }
+      localStorage.removeItem("pending_booking")
+    }
+  }, [user])
+
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(today, weekOffset * 7 + i))
   }, [today, weekOffset])
@@ -161,6 +185,24 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
   function handleContinueToBooking() {
     if (!selectedService || !selectedSlot) return
+    
+    // Check if user is logged in as patient
+    if (!user || user.role !== "patient") {
+      // Store only serializable booking details in localStorage
+      localStorage.setItem("pending_booking", JSON.stringify({
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        servicePrice: selectedService.price,
+        serviceType: selectedService.type,
+        date: selectedDay.toISOString(),
+        timeSlot: selectedSlot,
+        doctorId: doctorId
+      }))
+      // Redirect to patient login with return URL
+      router.push(`/patient/signin?redirect=/doctor/${doctorId}`)
+      return
+    }
+    
     setIsFollowUp(selectedService.type === "followup")
     setShowBookingModal(true)
   }
@@ -437,7 +479,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-foreground">{service.name}</span>
-                              <span className="text-sm font-semibold text-primary">${service.price}</span>
+                              <span className="text-sm font-semibold text-primary">₹{service.price}</span>
                             </div>
                             <span className="text-[11px] text-muted-foreground">{service.description}</span>
                           </div>
@@ -595,7 +637,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                       <span>{selectedSlot}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Total: <span className="font-semibold text-primary">${selectedService.price}</span>
+                      Total: <span className="font-semibold text-primary">₹{selectedService.price}</span>
                     </p>
                   </div>
                   <Button onClick={handleContinueToBooking} className="gap-1.5">

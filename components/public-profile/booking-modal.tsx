@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { format } from "date-fns"
 import {
   Dialog,
@@ -33,6 +33,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 interface BookingModalProps {
   open: boolean
@@ -57,9 +58,10 @@ export function BookingModal({
   doctorName,
   isFollowUp,
 }: BookingModalProps) {
+  const { user } = useAuth()
   const [step, setStep] = useState<Step>("details")
 
-  // Patient form
+  // Pre-fill from logged in user data
   const [name, setName] = useState("")
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
@@ -67,6 +69,15 @@ export function BookingModal({
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("1234567890")
   const [issue, setIssue] = useState("")
+
+  // Pre-fill when modal opens with user data
+  useEffect(() => {
+    if (open && user && user.role === "patient") {
+      setName(user.name || "")
+      setPhone(user.id || "1234567890") // user.id is phone number for patient
+      setEmail((user as any).email || "")
+    }
+  }, [open, user])
 
   // Follow-up prescription upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
@@ -162,7 +173,7 @@ export function BookingModal({
                     <span className="font-medium text-foreground">{service.name}</span>
                     {isFollowUp && <Badge variant="outline" className="text-[10px]">Follow-up</Badge>}
                   </div>
-                  <span className="font-semibold text-primary">${service.price}</span>
+                  <span className="font-semibold text-primary">₹{service.price}</span>
                 </div>
                 <Separator className="my-2" />
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -411,7 +422,7 @@ export function BookingModal({
                   <Separator orientation="vertical" className="h-6" />
                   <div className="flex flex-col gap-0.5 items-end">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="font-semibold text-primary">${service.price}</span>
+                    <span className="font-semibold text-primary">₹{service.price}</span>
                   </div>
                 </div>
               </CardContent>
@@ -435,7 +446,7 @@ export function BookingModal({
                   </>
                 ) : (
                   <>
-                    Verify & Pay ${service.price}
+                    Verify & Pay ₹{service.price}
                     <ArrowRight className="size-3.5" />
                   </>
                 )}

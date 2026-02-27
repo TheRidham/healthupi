@@ -10,13 +10,34 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Bell, Search } from "lucide-react"
+import { Bell, Search, LogOut, User } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  userRole?: "doctor" | "patient"
+}
+
+export function DashboardHeader({ userRole = "doctor" }: DashboardHeaderProps) {
+  const { user, logout } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/")
+  }
+
+  const avatarSrc = userRole === "doctor" ? "/images/doctor-avatar.jpg" : "/images/user-avatar.jpg"
+
+  const displayName = user?.name || (userRole === "doctor" ? "Dr. Rahul Sharma" : "User")
+  const displayRole = userRole === "doctor" ? "Cardiologist" : "Patient"
+  const initials = displayName.split(" ").map(n => n[0]).join("").slice(0, 2)
+  const searchPlaceholder = userRole === "doctor" ? "Search patients, records..." : "Search doctors, appointments..."
+
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
       <div className="flex items-center gap-3">
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <Link href={userRole === "doctor" ? "/dashboard/rahul-sharma" : "/"} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">H</span>
           </div>
@@ -29,9 +50,9 @@ export function DashboardHeader() {
         <div className="relative hidden md:block">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search patients, records..."
+            placeholder={searchPlaceholder}
             className="w-64 pl-8 h-8 text-sm"
-            aria-label="Search patients and records"
+            aria-label={searchPlaceholder}
           />
         </div>
         <Tooltip>
@@ -47,17 +68,20 @@ export function DashboardHeader() {
         </Tooltip>
         <div className="flex items-center gap-2 pl-2 border-l border-border">
           <Avatar className="size-8">
-            <AvatarImage src="/images/doctor-avatar.jpg" alt="Dr. Andrew Mitchell" />
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">AM</AvatarFallback>
+            <AvatarImage src={avatarSrc} alt={displayName} />
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="hidden md:flex flex-col">
             <span className="text-xs font-medium text-foreground leading-none">
-              Dr. Mitchell
+              {displayName}
             </span>
             <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-              Cardiologist
+              {displayRole}
             </span>
           </div>
+          <Button variant="ghost" size="icon-sm" onClick={handleLogout} aria-label="Logout">
+            <LogOut className="size-4" />
+          </Button>
         </div>
       </div>
     </header>

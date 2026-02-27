@@ -9,7 +9,7 @@ import { FollowUpManagement } from "./followup-management"
 import { TimeSlots } from "./time-slots"
 import { CallsSection } from "./calls-section"
 import { PersonalDetails } from "./personal-details"
-import { DashboardHeader } from "./dashboard-header"
+import { Header } from "@/components/header"
 import {
   Tooltip,
   TooltipContent,
@@ -50,10 +50,10 @@ export function DashboardShell({ doctorId = "andrew-mitchell" }: DashboardShellP
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader />
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <Header />
 
-      <div className="max-w-5xl mx-auto px-4 py-6 md:px-6">
+      <div className="max-w-5xl mx-auto px-2 sm:px-4 py-6 md:px-6 overflow-x-hidden">
         {/* Page title */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

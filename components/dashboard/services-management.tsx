@@ -109,9 +109,9 @@ export function ServicesManagement() {
                 : "opacity-70"
             }`}
           >
-            <CardContent className="px-5 py-0">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
+            <CardContent className="px-4 py-0 md:px-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                   <div
                     className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
                       service.enabled
@@ -142,13 +142,13 @@ export function ServicesManagement() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto sm:ml-0">
                   <div className="flex items-center gap-1.5" data-disabled={!service.enabled}>
                     <Label
                       htmlFor={`price-${service.id}`}
                       className="text-xs text-muted-foreground font-medium"
                     >
-                      {'$'}
+                      ₹
                     </Label>
                     <Input
                       id={`price-${service.id}`}

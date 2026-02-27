@@ -13,6 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useRouter } from "next/navigation";
+import { Header } from "@/components/header";
+import { useAuth } from "@/lib/auth-context";
 
 export default function SignInForm() {
   const [email, setEmail] = useState("")
@@ -22,6 +24,7 @@ export default function SignInForm() {
   const [success, setSuccess] = useState("")
 
   const router = useRouter();
+  const { login } = useAuth();
 
   //@ts-ignore
   const handleSignIn = async (e) => {
@@ -30,6 +33,7 @@ export default function SignInForm() {
     setError("")
     setSuccess("")
 
+    // Real Supabase auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -39,15 +43,28 @@ export default function SignInForm() {
 
     if (error) {
       setError(error.message)
-    } else {
-      setSuccess(`Welcome back, ${data.user.email}!`)
-       router.push("/dashboard/andrew-mitchell")
+    } else if (data.user) {
+      // Get doctor name from metadata or email
+      const doctorName = data.user.user_metadata?.name || 
+                        data.user.email?.split('@')[0] || 
+                        "Doctor"
+      const doctorId = data.user.user_metadata?.doctor_id || data.user.id
+      
+      login("doctor", doctorName, doctorId, data.user.email || "")
+      
+      // Wait a moment for context to update
+      setSuccess(`Welcome back, ${doctorName}!`)
+      setTimeout(() => {
+        router.push(`/dashboard/${doctorId}`)
+      }, 500)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 via-background to-accent/5 px-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen flex flex-col bg-linear-to-br from-primary/5 via-background to-accent/5">
+      <Header />
+      <div className="flex-1 flex items-center justify-center px-4">
+        <Card className="w-full max-w-md shadow-lg">
         {/* ── Header ── */}
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Doctor Log In</CardTitle>
@@ -117,6 +134,7 @@ export default function SignInForm() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   )
 }
