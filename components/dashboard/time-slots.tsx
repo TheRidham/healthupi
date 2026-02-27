@@ -154,7 +154,7 @@ export function TimeSlots() {
       </div>
 
       {/* Week Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -178,7 +178,7 @@ export function TimeSlots() {
       </div>
 
       {/* Day Selector */}
-      <div className="grid grid-cols-7 gap-2" role="listbox" aria-label="Select a day">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2 overflow-x-auto" role="listbox" aria-label="Select a day">
         {days.map((day) => {
           const isSelected = isSameDay(day, selectedDay)
           const isToday = isSameDay(day, today)
@@ -281,7 +281,7 @@ export function TimeSlots() {
             <Label className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">
               Morning
             </Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {MORNING_SLOTS.map((slot) => {
                 const isActive = daySlots.includes(slot)
                 return (
@@ -310,7 +310,7 @@ export function TimeSlots() {
             <Label className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">
               Afternoon / Evening
             </Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {AFTERNOON_SLOTS.map((slot) => {
                 const isActive = daySlots.includes(slot)
                 return (

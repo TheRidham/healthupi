@@ -2,8 +2,9 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Check, Calendar, Clock, ArrowLeft } from "lucide-react"
+import { Check, Calendar, Clock, ArrowLeft, User } from "lucide-react"
 import { format } from "date-fns"
+import { useRouter } from "next/navigation"
 
 interface PaymentSuccessProps {
   onBack: () => void
@@ -20,6 +21,8 @@ export function PaymentSuccess({
   date,
   timeSlot,
 }: PaymentSuccessProps) {
+  const router = useRouter()
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
@@ -63,6 +66,10 @@ export function PaymentSuccess({
             <Button variant="outline" className="w-full" onClick={onBack}>
               <ArrowLeft className="size-4 mr-2" />
               Back to Doctor Profile
+            </Button>
+            <Button className="w-full gap-2" onClick={() => router.push("/profile")}>
+              <User className="size-4" />
+              Go to My Profile
             </Button>
           </div>
         </CardContent>
