@@ -1,5 +1,5 @@
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+import { createClient } from "@supabase/supabase-js";
+
 
 export const tables = {
   users: "users",
@@ -13,11 +13,7 @@ export const tables = {
   notifications: "notifications",
 }
 
-export function createSupabaseClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("Supabase credentials not configured")
-  }
-  // TODO: import { createClient } from '@supabase/supabase-js'
-  // return createClient(supabaseUrl, supabaseAnonKey)
-  return null
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
