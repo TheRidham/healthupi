@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,14 +16,14 @@ export function DashboardHeader() {
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">H</span>
           </div>
           <span className="text-lg font-semibold text-foreground tracking-tight">
             HealthUPI
           </span>
-        </div>
+        </Link>
       </div>
       <div className="flex items-center gap-3">
         <div className="relative hidden md:block">

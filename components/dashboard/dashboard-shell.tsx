@@ -33,11 +33,15 @@ const PROFILE_SUBTABS = [
   { key: "timeslots", label: "Time Slots", icon: Clock },
 ] as const
 
-export function DashboardShell() {
+interface DashboardShellProps {
+  doctorId?: string
+}
+
+export function DashboardShell({ doctorId = "andrew-mitchell" }: DashboardShellProps) {
   const [profileTab, setProfileTab] = useState<string>("services")
   const [copied, setCopied] = useState(false)
 
-  const profileUrl = "healthupi.app/dr/andrew-mitchell"
+  const profileUrl = `healthupi.app/dr/${doctorId}`
 
   function handleCopyLink() {
     navigator.clipboard.writeText(`https://${profileUrl}`)

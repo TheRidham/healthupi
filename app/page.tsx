@@ -39,7 +39,7 @@ export default function HomePage() {
 
     setTimeout(() => {
       if (username === MOCK_DOCTOR_CREDENTIALS.username && password === MOCK_DOCTOR_CREDENTIALS.password) {
-        router.push("/dashboard")
+        router.push("/dashboard/andrew-mitchell")
       } else {
         setError("Invalid credentials. Try: doctor / doctor123")
       }
