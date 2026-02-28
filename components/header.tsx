@@ -142,17 +142,9 @@ export function Header() {
                   variant="outline"
                   size="sm"
                   className="hidden sm:flex"
-                  onClick={() => router.push("/patient/signin")}
+                  onClick={() => router.push("/create")}
                 >
-                  Patient Login
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex"
-                  onClick={() => router.push("/signin")}
-                >
-                  Doctor Login
+                  Doctor Onboarding
                 </Button>
               </>
             )}

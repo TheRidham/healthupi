@@ -161,3 +161,15 @@ export async function submitDoctorProfile(form: DoctorFormData, userId: string) 
   if (error) throw error
   return data
 }
+
+// ── Fetch doctor profile ─────────────────────────────────────
+export async function fetchDoctorProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("doctor_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .single()
+
+  if (error) throw error
+  return data
+}

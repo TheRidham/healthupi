@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,7 +28,10 @@ import {
   Save,
   X,
   ImagePlus,
+  Loader2,
 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { fetchDoctorProfile } from "@/lib/type"
 
 interface DoctorInfo {
   name: string
@@ -81,9 +84,77 @@ const GALLERY_IMAGES = [
 ]
 
 export function PersonalDetails() {
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [info, setInfo] = useState<DoctorInfo>(INITIAL_DATA)
   const [editInfo, setEditInfo] = useState<DoctorInfo>(INITIAL_DATA)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [galleryImages, setGalleryImages] = useState<Array<{ src: string; alt: string }>>(GALLERY_IMAGES)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+
+  // Fetch doctor profile from Supabase
+  useEffect(() => {
+    async function loadDoctorProfile() {
+      if (!user?.id) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        setError(null)
+        const profile = await fetchDoctorProfile(user.id)
+        
+        // Map Supabase data to component format
+        const doctorInfo: DoctorInfo = {
+          name: `${profile.title || "Dr."} ${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
+          title: profile.designation || "Senior Consultant",
+          specialization: profile.specialization || "General Medicine",
+          subSpecialization: profile.sub_specialization || "",
+          experience: profile.experience_years ? `${profile.experience_years} years` : "",
+          qualifications: profile.qualifications || [],
+          registrationNumber: profile.registration_no || "",
+          clinicName: profile.clinic_name || "",
+          hospitalAffiliation: profile.hospital || "",
+          address: profile.address || "",
+          city: profile.city || "",
+          state: profile.state || "",
+          zipCode: profile.zip || "",
+          phone: profile.phone || "",
+          email: profile.email || user.email || "",
+          website: profile.website || "",
+          bio: profile.about || "",
+          languages: profile.languages || [],
+          consultationFee: profile.base_fee?.toString() || "0",
+        }
+
+        setInfo(doctorInfo)
+        setEditInfo(doctorInfo)
+
+        // Set profile photo
+        if (profile.photo_url) {
+          setPhotoUrl(profile.photo_url)
+        }
+
+        // Set gallery images from clinic photos
+        if (profile.clinic_photo_urls && profile.clinic_photo_urls.length > 0) {
+          const clinicImages = profile.clinic_photo_urls.map((url: string, idx: number) => ({
+            src: url,
+            alt: `Clinic photo ${idx + 1}`
+          }))
+          setGalleryImages(clinicImages)
+        }
+      } catch (err) {
+        console.error("Error loading doctor profile:", err)
+        setError("Failed to load profile data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDoctorProfile()
+  }, [user?.id, user?.email])
 
   const startEditing = () => {
     setEditInfo({ ...info })
@@ -105,18 +176,55 @@ export function PersonalDetails() {
 
   const currentData = isEditing ? editInfo : info
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading profile...</p>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <div className="rounded-full bg-destructive/10 p-3">
+          <X className="size-6 text-destructive" />
+        </div>
+        <p className="text-sm text-destructive font-medium">{error}</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => window.location.reload()}
+        >
+          Try Again
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header with photo and name */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-5">
-          <div className="relative size-20 rounded-2xl overflow-hidden border-2 border-border shadow-sm">
-            <Image
-              src="/images/doctor-avatar.jpg"
-              alt="Doctor profile photo"
-              fill
-              className="object-cover"
-            />
+          <div className="relative size-20 rounded-2xl overflow-hidden border-2 border-border shadow-sm bg-muted">
+            {photoUrl ? (
+              <Image
+                src={photoUrl}
+                alt="Doctor profile photo"
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center size-full">
+                <span className="text-2xl font-semibold text-muted-foreground">
+                  {info.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             {isEditing ? (
@@ -427,7 +535,7 @@ export function PersonalDetails() {
           </Tooltip>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          {GALLERY_IMAGES.map((img) => (
+          {galleryImages.map((img) => (
             <div
               key={img.src}
               className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border shadow-sm group"
