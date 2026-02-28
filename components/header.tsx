@@ -142,9 +142,17 @@ export function Header() {
                   variant="outline"
                   size="sm"
                   className="hidden sm:flex"
-                  onClick={() => router.push("/create")}
+                  onClick={() => router.push("/patient/signin")}
                 >
-                  Doctor Onboarding
+                  Patient Login
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex"
+                  onClick={() => router.push("/doctor/signin")}
+                >
+                  Doctor Login
                 </Button>
               </>
             )}
@@ -234,7 +242,7 @@ export function Header() {
                   className="justify-start"
                   onClick={() => {
                     setMobileMenuOpen(false)
-                    router.push("/signin")
+                    router.push("/doctor/signin")
                   }}
                 >
                   <User className="size-4 mr-2" />

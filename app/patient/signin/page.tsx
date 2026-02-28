@@ -123,9 +123,9 @@ function PatientSignInContent() {
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Patient Login</CardTitle>
+            <CardTitle className="text-2xl font-bold">Patient Login / Sign Up</CardTitle>
             <CardDescription>
-              {step === "phone" && "Enter your phone number to continue"}
+              {step === "phone" && "Enter your phone number to login or sign up"}
               {step === "otp" && "Enter the OTP sent to your phone"}
               {step === "profile" && "Complete your profile to continue"}
             </CardDescription>

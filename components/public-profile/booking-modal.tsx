@@ -41,9 +41,14 @@ interface BookingModalProps {
   onSuccess: () => void
   service: { id: string; name: string; price: number; icon: React.ReactNode }
   date: Date
-  timeSlot: string
+  timeSlot: string | { time: string; endTime: string; duration: number }
   doctorName: string
   isFollowUp: boolean
+}
+
+function getTimeSlotDisplay(slot: string | { time: string; endTime: string; duration: number }): string {
+  if (typeof slot === "string") return slot
+  return `${slot.time} - ${slot.endTime}`
 }
 
 type Step = "details" | "otp" | "processing"
@@ -183,7 +188,7 @@ export function BookingModal({
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="size-3" />
-                    {timeSlot}
+                    {getTimeSlotDisplay(timeSlot)}
                   </div>
                 </div>
               </CardContent>
@@ -417,7 +422,7 @@ export function BookingModal({
                   <Separator orientation="vertical" className="h-6" />
                   <div className="flex flex-col gap-0.5 items-center">
                     <span className="text-muted-foreground">{service.name}</span>
-                    <span className="font-medium text-foreground">{format(date, "MMM d")} at {timeSlot}</span>
+                    <span className="font-medium text-foreground">{format(date, "MMM d")} at {getTimeSlotDisplay(timeSlot)}</span>
                   </div>
                   <Separator orientation="vertical" className="h-6" />
                   <div className="flex flex-col gap-0.5 items-end">

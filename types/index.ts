@@ -50,6 +50,7 @@ export interface TimeSlot {
   dayOfWeek: number
   startTime: string
   endTime: string
+  appointmentDuration: number
   isAvailable: boolean
 }
 

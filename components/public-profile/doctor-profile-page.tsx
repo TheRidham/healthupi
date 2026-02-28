@@ -36,7 +36,7 @@ import {
   RotateCcw,
   LogIn,
 } from "lucide-react"
-import { addDays, format, isSameDay, startOfToday } from "date-fns"
+import { addDays, format, startOfToday, isSameDay, isBefore, setHours, setMinutes } from "date-fns"
 import { BookingModal } from "./booking-modal"
 import { PaymentSuccess } from "./payment-success"
 import { Header } from "@/components/header"
@@ -44,6 +44,64 @@ import { useAuth } from "@/lib/auth-context"
 
 interface DoctorProfilePageProps {
   doctorId?: string
+}
+
+/* ── Mock Available Slots (hardcoded for UI demo) ───────────────── */
+interface SimpleSlot {
+  time: string
+  endTime: string
+  duration: number
+  available: boolean
+}
+
+const TIME_SLOTS_28_FEB: SimpleSlot[] = [
+  { time: "9:00 AM", endTime: "9:30 AM", duration: 30, available: true },
+  { time: "9:30 AM", endTime: "10:00 AM", duration: 30, available: true },
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: false },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: false },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: true },
+  { time: "11:30 AM", endTime: "12:00 PM", duration: 30, available: true },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: false },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+  { time: "3:00 PM", endTime: "3:30 PM", duration: 30, available: true },
+  { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
+  { time: "4:00 PM", endTime: "4:30 PM", duration: 30, available: true },
+]
+
+const TIME_SLOTS_1_MAR: SimpleSlot[] = [
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: true },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: true },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: false },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: true },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+]
+
+const TIME_SLOTS_OTHER: SimpleSlot[] = [
+  { time: "9:00 AM", endTime: "9:30 AM", duration: 30, available: true },
+  { time: "9:30 AM", endTime: "10:00 AM", duration: 30, available: true },
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: true },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: true },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: true },
+  { time: "11:30 AM", endTime: "12:00 PM", duration: 30, available: true },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: true },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+  { time: "3:00 PM", endTime: "3:30 PM", duration: 30, available: true },
+  { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
+]
+
+function getSlotsForDate(date: Date): SimpleSlot[] {
+  const day = date.getDay()
+  if (day === 0) return [] // Sunday - no slots
+  if (day === 6) return TIME_SLOTS_OTHER.filter(s => parseInt(s.time.split(":")[0]) < 12) // Saturday - morning only
+  
+  const dateStr = format(date, "yyyy-MM-dd")
+  if (dateStr === "2026-02-28") return TIME_SLOTS_28_FEB
+  if (dateStr === "2026-03-01") return TIME_SLOTS_1_MAR
+  return TIME_SLOTS_OTHER
+}
+
+function getSlotCountForDate(date: Date): number {
+  return getSlotsForDate(date).length
 }
 
 /* ── Doctor mock data ─────────────────────────────────────── */
@@ -89,6 +147,7 @@ const SERVICES: ServiceOption[] = [
   { id: "home-visit", type: "service", name: "Home Visit", icon: <Home className="size-5" />, price: 1500, enabled: true, description: "In-person visit at your residence" },
   { id: "emergency", type: "service", name: "Emergency", icon: <Siren className="size-5" />, price: 2000, enabled: true, description: "Urgent consultations (priority)" },
   { id: "subscription", type: "service", name: "Subscription", icon: <CreditCard className="size-5" />, price: 3000, enabled: true, description: "Monthly unlimited consultations" },
+  { id: "followup", type: "followup", name: "Follow-up", icon: <RotateCcw className="size-5" />, price: -1, enabled: true, description: "Follow-up for returning patients (reduced rates)" },
 ]
 
 const FOLLOWUP_SERVICES: ServiceOption[] = [
@@ -96,29 +155,8 @@ const FOLLOWUP_SERVICES: ServiceOption[] = [
   { id: "followup-chat", type: "followup", name: "Follow-up Chat", icon: <MessageSquare className="size-5" />, price: 100, enabled: true, description: "Text follow-up for returning patients" },
 ]
 
-const TIME_SLOTS = [
-  "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-  "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM",
-  "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM",
-  "05:00 PM", "05:30 PM", "06:00 PM",
-]
-
-const MORNING_SLOTS = TIME_SLOTS.filter((s) => s.includes("AM"))
-const AFTERNOON_SLOTS = TIME_SLOTS.filter((s) => s.includes("PM"))
-
-// Simulated available slots per day
-function getAvailableSlots(day: Date): string[] {
-  const dayOfWeek = day.getDay()
-  if (dayOfWeek === 0) return [] // Sunday off
-  if (dayOfWeek === 6) return ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM"]
-  return [
-    "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-    "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM",
-  ]
-}
-
 type ViewMode = "main" | "booking" | "followup" | "success"
-type TabMode = "book" | "followup" | "profile"
+type TabMode = "book" | "profile"
 
 export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const router = useRouter()
@@ -139,7 +177,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   // Date & slot selection
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDay, setSelectedDay] = useState<Date>(today)
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<SimpleSlot | null>(null)
 
   // Booking modal
   const [showBookingModal, setShowBookingModal] = useState(false)
@@ -170,16 +208,24 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     return Array.from({ length: 7 }, (_, i) => addDays(today, weekOffset * 7 + i))
   }, [today, weekOffset])
 
-  const availableSlots = useMemo(() => getAvailableSlots(selectedDay), [selectedDay])
-  const morningAvailable = MORNING_SLOTS.filter((s) => availableSlots.includes(s))
-  const afternoonAvailable = AFTERNOON_SLOTS.filter((s) => availableSlots.includes(s))
+  const availableSlots = useMemo(() => getSlotsForDate(selectedDay), [selectedDay])
+  const morningSlots = availableSlots.filter(s => s.time.includes("AM"))
+  const afternoonSlots = availableSlots.filter(s => s.time.includes("PM"))
 
   function handleSelectService(service: ServiceOption) {
+    if (service.id === "followup") {
+      setIsFollowUp(true)
+      setSelectedService(null)
+      setSelectedSlot(null)
+      return
+    }
     setSelectedService(service)
     setSelectedSlot(null)
+    setIsFollowUp(service.type === "followup")
   }
 
-  function handleSelectSlot(slot: string) {
+  function handleSelectSlot(slot: SimpleSlot) {
+    if (!slot.available) return
     setSelectedSlot(slot)
   }
 
@@ -195,7 +241,9 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         servicePrice: selectedService.price,
         serviceType: selectedService.type,
         date: selectedDay.toISOString(),
-        timeSlot: selectedSlot,
+        timeSlot: selectedSlot.time,
+        timeSlotEnd: selectedSlot.endTime,
+        timeSlotDuration: selectedSlot.duration,
         doctorId: doctorId
       }))
       // Redirect to patient login with return URL
@@ -219,23 +267,12 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setActiveTab("book")
   }
 
-  function handleStartFollowUp() {
-    // Check if follow-up is enabled
-    const hasFollowUp = FOLLOWUP_SERVICES.some((s) => s.enabled)
-    if (!hasFollowUp) {
-      return // Would show a message, but follow-ups are enabled in our mock
-    }
-    setActiveTab("followup")
-    setSelectedService(null)
-    setSelectedSlot(null)
-  }
-
   // ── Success screen ──
   if (view === "success") {
     return <PaymentSuccess onBack={handleBackToMain} doctorName={currentDoctor.name} />
   }
 
-  const currentServiceList = activeTab === "followup" ? FOLLOWUP_SERVICES : SERVICES
+  const currentServiceList = isFollowUp ? FOLLOWUP_SERVICES : SERVICES
 
   return (
     <div className="min-h-screen bg-background">
@@ -260,68 +297,19 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Section tabs */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1" role="tablist">
-          {[
-            { key: "book" as TabMode, label: "New Appointment", icon: <CalendarCheck className="size-3.5" /> },
-            { key: "followup" as TabMode, label: "Follow-up", icon: <RotateCcw className="size-3.5" /> },
-            { key: "profile" as TabMode, label: "Doctor Profile", icon: <Stethoscope className="size-3.5" /> },
-          ].map((tab) => (
-            <Button
-              key={tab.key}
-              variant={activeTab === tab.key ? "default" : "outline"}
-              size="sm"
-              className="gap-1.5 rounded-full h-8 px-4 text-xs font-medium shrink-0"
-              onClick={() => {
-                setActiveTab(tab.key)
-                setSelectedService(null)
-                setSelectedSlot(null)
-              }}
-              role="tab"
-              aria-selected={activeTab === tab.key}
-            >
-              {tab.icon}
-              {tab.label}
-            </Button>
-          ))}
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* PROFILE TAB                                            */}
-        {/* ═══════════════════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════════════ */}
+        {/* PROFILE VIEW                                                */}
+        {/* ═══════════════════════════════════════════════════════════════ */}
         {activeTab === "profile" && (
           <div className="flex flex-col gap-6">
+            {/* Back button */}
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab("book")} className="w-fit -ml-2 gap-1">
+              <ArrowRight className="size-3.5 rotate-180" />
+              Back to Booking
+            </Button>
+
             {/* Hero card */}
-            <Card className="overflow-hidden py-0">
-              <div className="relative h-32 bg-gradient-to-br from-primary/20 to-primary/5">
-                <div className="absolute -bottom-10 left-6">
-                  <div className="relative size-20 rounded-2xl overflow-hidden border-4 border-card shadow-md">
-                    <Image src={currentDoctor.avatar} alt="Doctor photo" fill className="object-cover" />
-                  </div>
-                </div>
-              </div>
-              <CardContent className="pt-14 pb-6 px-6">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h1 className="text-xl font-semibold text-foreground">{currentDoctor.name}</h1>
-                    <p className="text-sm text-muted-foreground">{currentDoctor.title}</p>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <Badge className="bg-primary/10 text-primary border-none text-[11px]">{currentDoctor.specialization}</Badge>
-                      <Badge variant="outline" className="text-[11px]">{currentDoctor.subSpecialization}</Badge>
-                      {currentDoctor.qualifications.map((q) => (
-                        <Badge key={q} variant="secondary" className="text-[10px]">{q}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 mt-2 sm:mt-0 shrink-0">
-                    <Star className="size-4 fill-chart-4 text-chart-4" />
-                    <span className="text-sm font-semibold text-foreground">{currentDoctor.rating}</span>
-                    <span className="text-xs text-muted-foreground">({currentDoctor.reviewCount})</span>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed mt-4">{currentDoctor.bio}</p>
-              </CardContent>
-            </Card>
+            <DoctorHeroCard doctor={currentDoctor} />
 
             {/* Info cards grid */}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -393,64 +381,45 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                     Book Appointment
                     <ArrowRight className="size-3.5" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleStartFollowUp}>
-                    Follow-up
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* BOOKING / FOLLOW-UP TAB                                */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {(activeTab === "book" || activeTab === "followup") && (
+        {activeTab === "book" && (
           <div className="flex flex-col gap-6">
-            {/* Doctor quick info */}
-            <Card className="py-4">
-              <CardContent className="px-5 py-0 flex items-center gap-4">
-                <div className="relative size-14 rounded-xl overflow-hidden border border-border shrink-0">
-                  <Image src={currentDoctor.avatar} alt="" fill className="object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-semibold text-foreground">{currentDoctor.name}</h2>
-                  <p className="text-xs text-muted-foreground">{currentDoctor.specialization} - {currentDoctor.subSpecialization}</p>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <div className="flex items-center gap-1">
-                      <Star className="size-3 fill-chart-4 text-chart-4" />
-                      <span className="text-xs font-medium text-foreground">{currentDoctor.rating}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="size-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{currentDoctor.experience}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="size-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground truncate">{currentDoctor.clinicName}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Doctor hero card */}
+            <DoctorHeroCard 
+              doctor={currentDoctor} 
+              showViewProfileButton={true}
+              onViewProfileClick={() => setActiveTab("profile")}
+            />
 
-            {activeTab === "followup" && (
-              <Card className="py-3 border-accent/30 bg-accent/5">
-                <CardContent className="px-5 py-0 flex items-center gap-3">
-                  <RotateCcw className="size-4 text-accent shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-foreground">Follow-up Consultation</p>
-                    <p className="text-[11px] text-muted-foreground">Available for patients who consulted within the last 10 days. Reduced rates apply.</p>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Back button for follow-up */}
+            {isFollowUp && (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => { setIsFollowUp(false); setSelectedService(null); setSelectedSlot(null) }} className="w-fit gap-1.5">
+                  <ArrowRight className="size-3.5 rotate-180" />
+                  Back to Services
+                </Button>
+                <Card className="py-3 border-primary/30 bg-primary/5">
+                  <CardContent className="px-5 py-0 flex items-center gap-3">
+                    <RotateCcw className="size-4 text-primary shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Follow-up Consultation</p>
+                      <p className="text-[11px] text-muted-foreground">Available for patients who consulted within the last 10 days. Reduced rates apply.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {/* Step 1 - Select service */}
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                 <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">1</span>
-                {activeTab === "followup" ? "Select Follow-up Service" : "Select Service"}
+                {isFollowUp ? "Select Follow-up Service" : "Select Service"}
               </h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {currentServiceList.filter((s) => s.enabled).map((service) => {
@@ -459,9 +428,11 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                     <Card
                       key={service.id}
                       className={`py-3 cursor-pointer transition-all hover:shadow-sm ${
-                        isActive
-                          ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
-                          : "hover:border-primary/30"
+                        service.id === "followup" 
+                          ? "border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50"
+                          : isActive
+                            ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
+                            : "hover:border-primary/30"
                       }`}
                       onClick={() => handleSelectService(service)}
                       role="radio"
@@ -479,7 +450,9 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-foreground">{service.name}</span>
-                              <span className="text-sm font-semibold text-primary">₹{service.price}</span>
+                              {service.price >= 0 && (
+                                <span className="text-sm font-semibold text-primary">₹{service.price}</span>
+                              )}
                             </div>
                             <span className="text-[11px] text-muted-foreground">{service.description}</span>
                           </div>
@@ -517,7 +490,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                   {days.map((day) => {
                     const isSelected = isSameDay(day, selectedDay)
                     const isToday = isSameDay(day, today)
-                    const dayAvailable = getAvailableSlots(day).length
+                    const dayAvailable = getSlotCountForDate(day)
                     return (
                       <Button
                         key={day.toISOString()}
@@ -558,54 +531,62 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                   <Card className="py-4">
                     <CardContent className="px-4 py-0">
                       <p className="text-xs font-medium text-foreground mb-3">
-                        {format(selectedDay, "EEEE, MMMM d")} - Available slots
+                        {format(selectedDay, "EEEE, MMMM d")} - {availableSlots.length} slots available
                       </p>
-                      {morningAvailable.length > 0 && (
+                      {morningSlots.length > 0 && (
                         <div className="mb-3">
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Morning</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {morningAvailable.map((slot) => {
-                              const isActive = selectedSlot === slot
+                            {morningSlots.map((slot) => {
+                              const isActive = selectedSlot?.time === slot.time
                               return (
                                 <Toggle
-                                  key={slot}
+                                  key={slot.time}
                                   variant="outline"
                                   size="sm"
                                   pressed={isActive}
                                   onPressedChange={() => handleSelectSlot(slot)}
+                                  disabled={!slot.available}
                                   className={`text-xs h-8 px-3 ${
-                                    isActive
-                                      ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                      : ""
+                                    !slot.available 
+                                      ? "opacity-40 cursor-not-allowed line-through" 
+                                      : isActive
+                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                        : ""
                                   }`}
                                 >
-                                  {slot}
+                                  {slot.time}
+                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
                                 </Toggle>
                               )
                             })}
                           </div>
                         </div>
                       )}
-                      {afternoonAvailable.length > 0 && (
+                      {afternoonSlots.length > 0 && (
                         <div>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Afternoon / Evening</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {afternoonAvailable.map((slot) => {
-                              const isActive = selectedSlot === slot
+                            {afternoonSlots.map((slot) => {
+                              const isActive = selectedSlot?.time === slot.time
                               return (
                                 <Toggle
-                                  key={slot}
+                                  key={slot.time}
                                   variant="outline"
                                   size="sm"
                                   pressed={isActive}
                                   onPressedChange={() => handleSelectSlot(slot)}
+                                  disabled={!slot.available}
                                   className={`text-xs h-8 px-3 ${
-                                    isActive
-                                      ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                      : ""
+                                    !slot.available 
+                                      ? "opacity-40 cursor-not-allowed line-through" 
+                                      : isActive
+                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                        : ""
                                   }`}
                                 >
-                                  {slot}
+                                  {slot.time}
+                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
                                 </Toggle>
                               )
                             })}
@@ -634,7 +615,8 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                       <Separator orientation="vertical" className="h-3.5" />
                       <span>{format(selectedDay, "MMM d")}</span>
                       <Separator orientation="vertical" className="h-3.5" />
-                      <span>{selectedSlot}</span>
+                      <span>{selectedSlot.time} - {selectedSlot.endTime}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{selectedSlot.duration}m</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Total: <span className="font-semibold text-primary">₹{selectedService.price}</span>
@@ -677,5 +659,61 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
       </div>
       <span className="text-xs text-foreground font-medium text-right truncate max-w-[200px]">{value}</span>
     </div>
+  )
+}
+
+function DoctorHeroCard({ 
+  doctor, 
+  showViewProfileButton = false, 
+  onViewProfileClick 
+}: { 
+  doctor: typeof DOCTOR
+  showViewProfileButton?: boolean
+  onViewProfileClick?: () => void
+}) {
+  return (
+    <Card className="overflow-hidden py-0">
+      <div className="relative h-24 bg-gradient-to-br from-primary/20 to-primary/5">
+        <div className="absolute -bottom-8 left-6">
+          <div className="relative size-16 rounded-2xl overflow-hidden border-4 border-card shadow-md">
+            <Image src={doctor.avatar} alt="Doctor photo" fill className="object-cover" />
+          </div>
+        </div>
+      </div>
+      <CardContent className="pt-11 pb-4 px-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">{doctor.name}</h1>
+            <p className="text-xs text-muted-foreground">{doctor.title}</p>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <Badge className="bg-primary/10 text-primary border-none text-[10px]">{doctor.specialization}</Badge>
+              <Badge variant="outline" className="text-[10px]">{doctor.subSpecialization}</Badge>
+              {doctor.qualifications.slice(0, 2).map((q) => (
+                <Badge key={q} variant="secondary" className="text-[9px]">{q}</Badge>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0">
+            <div className="flex items-center gap-1">
+              <Star className="size-3.5 fill-chart-4 text-chart-4" />
+              <span className="text-sm font-semibold text-foreground">{doctor.rating}</span>
+              <span className="text-[10px] text-muted-foreground">({doctor.reviewCount})</span>
+            </div>
+            {showViewProfileButton && (
+              <Button 
+                variant="default"
+                size="sm" 
+                className="h-7 gap-1 text-xs"
+                onClick={onViewProfileClick}
+              >
+                <Stethoscope className="size-3" />
+                View Profile
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed mt-2 line-clamp-2">{doctor.bio}</p>
+      </CardContent>
+    </Card>
   )
 }

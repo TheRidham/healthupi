@@ -131,6 +131,24 @@ export default function SignInForm() {
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => router.push("/create")}
+            >
+              New to HealthUPI? Register here
+            </Button>
           </CardFooter>
         </form>
       </Card>

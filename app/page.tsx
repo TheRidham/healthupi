@@ -53,7 +53,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  Doctor Login
+                  Doctor Dashboard
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   Access your dashboard, manage appointments, and consult
@@ -61,11 +61,11 @@ export default function HomePage() {
                 </p>
               </div>
               <Button
-                onClick={() => router.push("/signin")}
+                onClick={() => router.push("/doctor/signin")}
                 variant="outline"
                 className="w-full group-hover:bg-primary group-hover:text-primary-foreground"
               >
-                Login as Doctor
+                Continue as Doctor
                 <ArrowRight className="size-4 ml-2" />
               </Button>
             </CardContent>
