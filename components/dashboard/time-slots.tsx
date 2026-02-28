@@ -42,6 +42,7 @@ interface TimeSlot {
   day: string
   startTime: string
   endTime: string
+  appointmentDuration: number
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -89,19 +90,19 @@ export function TimeSlots() {
   const [selectedDay, setSelectedDay] = useState<string>(DAYS[today.getDay() - 1] || "Mon")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
-  const [newSlot, setNewSlot] = useState({ day: "Mon", startTime: "09:00", endTime: "12:00" })
+  const [newSlot, setNewSlot] = useState({ day: "Mon", startTime: "09:00", endTime: "12:00", appointmentDuration: 30 })
   const [pendingSlots, setPendingSlots] = useState<TimeSlot[]>([])
   const [overlapError, setOverlapError] = useState("")
   
   const [slots, setSlots] = useState<TimeSlot[]>([
-    { id: "1", day: "Mon", startTime: "09:00", endTime: "12:00" },
-    { id: "2", day: "Mon", startTime: "14:00", endTime: "17:00" },
-    { id: "3", day: "Tue", startTime: "10:00", endTime: "13:00" },
-    { id: "4", day: "Wed", startTime: "09:00", endTime: "11:00" },
-    { id: "5", day: "Wed", startTime: "16:00", endTime: "19:00" },
-    { id: "6", day: "Thu", startTime: "09:00", endTime: "12:00" },
-    { id: "7", day: "Fri", startTime: "10:00", endTime: "14:00" },
-    { id: "8", day: "Sat", startTime: "11:00", endTime: "15:00" },
+    { id: "1", day: "Mon", startTime: "09:00", endTime: "12:00", appointmentDuration: 30 },
+    { id: "2", day: "Mon", startTime: "14:00", endTime: "17:00", appointmentDuration: 30 },
+    { id: "3", day: "Tue", startTime: "10:00", endTime: "13:00", appointmentDuration: 30 },
+    { id: "4", day: "Wed", startTime: "09:00", endTime: "11:00", appointmentDuration: 30 },
+    { id: "5", day: "Wed", startTime: "16:00", endTime: "19:00", appointmentDuration: 30 },
+    { id: "6", day: "Thu", startTime: "09:00", endTime: "12:00", appointmentDuration: 45 },
+    { id: "7", day: "Fri", startTime: "10:00", endTime: "14:00", appointmentDuration: 30 },
+    { id: "8", day: "Sat", startTime: "11:00", endTime: "15:00", appointmentDuration: 30 },
   ])
 
   const days = useMemo(() => {
@@ -164,6 +165,16 @@ export function TimeSlots() {
     const hrs = Math.floor(totalMins / 60)
     const mins = totalMins % 60
     return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`
+  }
+
+  const getTotalPatientsThisWeek = () => {
+    return slots.reduce((acc, slot) => {
+      const start = timeToMinutes(slot.startTime)
+      const end = timeToMinutes(slot.endTime)
+      const windowMins = end - start
+      const duration = slot.appointmentDuration || 30
+      return acc + Math.floor(windowMins / duration)
+    }, 0)
   }
 
   const timeOptions = useMemo(() => {
@@ -244,16 +255,17 @@ export function TimeSlots() {
       day: newSlot.day,
       startTime: formattedStart,
       endTime: formattedEnd,
+      appointmentDuration: newSlot.appointmentDuration || 30,
     }
     setPendingSlots((prev) => [...prev, newSlotWithId])
-    setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00" })
+    setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00", appointmentDuration: 30 })
   }
 
   const saveAllSlots = () => {
     setSlots((prev) => [...prev, ...pendingSlots])
     setPendingSlots([])
     setIsAddDialogOpen(false)
-    setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00" })
+    setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00", appointmentDuration: 30 })
   }
 
   const cancelAdd = () => {
@@ -266,33 +278,43 @@ export function TimeSlots() {
     setPendingSlots((prev) => prev.filter((s) => s.id !== id))
   }
 
+  const getEstimatedPatients = () => {
+    const start = timeToMinutes(newSlot.startTime)
+    const end = timeToMinutes(newSlot.endTime)
+    const duration = newSlot.appointmentDuration || 30
+    const windowMins = end - start
+    if (windowMins <= 0 || duration <= 0) return 0
+    return Math.floor(windowMins / duration)
+  }
+
   const applyTemplate = (template: string) => {
     let newSlots: TimeSlot[] = []
     const id = Date.now().toString()
+    const duration = 30
     
     switch (template) {
       case "weekdays":
         DAYS.slice(0, 5).forEach((day, i) => {
-          newSlots.push({ id: `${id}-${i}`, day, startTime: "09:00", endTime: "17:00" })
+          newSlots.push({ id: `${id}-${i}`, day, startTime: "09:00", endTime: "17:00", appointmentDuration: duration })
         })
         break
       case "mon-wed-fri":
         ["Mon", "Wed", "Fri"].forEach((day, i) => {
-          newSlots.push({ id: `${id}-${i}`, day, startTime: "09:00", endTime: "14:00" })
+          newSlots.push({ id: `${id}-${i}`, day, startTime: "09:00", endTime: "14:00", appointmentDuration: duration })
         })
         break
       case "morning-only":
         DAYS.forEach((day, i) => {
-          newSlots.push({ id: `${id}-${i}`, day, startTime: "08:00", endTime: "12:00" })
+          newSlots.push({ id: `${id}-${i}`, day, startTime: "08:00", endTime: "12:00", appointmentDuration: duration })
         })
         break
       case "evening-only":
         DAYS.forEach((day, i) => {
-          newSlots.push({ id: `${id}-${i}`, day, startTime: "16:00", endTime: "20:00" })
+          newSlots.push({ id: `${id}-${i}`, day, startTime: "16:00", endTime: "20:00", appointmentDuration: duration })
         })
         break
       case "sat-only":
-        newSlots.push({ id: `${id}-0`, day: "Sat", startTime: "10:00", endTime: "16:00" })
+        newSlots.push({ id: `${id}-0`, day: "Sat", startTime: "10:00", endTime: "16:00", appointmentDuration: duration })
         break
     }
     
@@ -307,7 +329,7 @@ export function TimeSlots() {
     setSelectedDay(dayAbbrev)
     const daySlots = getSlotsForDay(dayAbbrev)
     if (daySlots.length === 0) {
-      setNewSlot({ day: dayAbbrev, startTime: "09:00", endTime: "12:00" })
+      setNewSlot({ day: dayAbbrev, startTime: "09:00", endTime: "12:00", appointmentDuration: 30 })
       setIsAddDialogOpen(true)
     }
   }
@@ -330,7 +352,7 @@ export function TimeSlots() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {getTotalHoursThisWeek()} total this week
+            {getTotalHoursThisWeek()} · ~{getTotalPatientsThisWeek()} patients this week
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -537,9 +559,47 @@ export function TimeSlots() {
                   {/* Duration Preview */}
                   <div className="flex justify-center">
                     <Badge variant="outline" className="text-sm px-4 py-1 bg-muted/30">
-                      Duration: {getSlotDurationPreview()}
+                      Window: {getSlotDurationPreview()}
                     </Badge>
                   </div>
+                </div>
+
+                {/* Appointment Duration Selector */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Time per Patient <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { value: 15, label: "15 min" },
+                      { value: 20, label: "20 min" },
+                      { value: 30, label: "30 min" },
+                      { value: 45, label: "45 min" },
+                      { value: 60, label: "60 min" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewSlot({ ...newSlot, appointmentDuration: opt.value })}
+                        className={`p-2 rounded-lg text-center text-xs font-medium transition-all ${
+                          newSlot.appointmentDuration === opt.value
+                            ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
+                            : "bg-muted hover:bg-muted/80"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {(() => {
+                    const patients = getEstimatedPatients()
+                    return (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Estimated <span className="font-semibold text-primary">{patients}</span> appointment{patients !== 1 ? "s" : ""} possible
+                        {patients === 0 && newSlot.appointmentDuration && <span className="text-destructive"> (increase window or reduce time)</span>}
+                      </p>
+                    )
+                  })()}
                 </div>
 
                 {/* Quick Presets */}
@@ -550,9 +610,9 @@ export function TimeSlots() {
                       { label: "Morning", start: "09:00", end: "12:00" },
                       { label: "Afternoon", start: "14:00", end: "17:00" },
                       { label: "Evening", start: "18:00", end: "20:00" },
-                      { label: "Lunch", start: "10:00", end: "13:00" },
                       { label: "Full Day", start: "09:00", end: "17:00" },
                       { label: "Short Day", start: "10:00", end: "16:00" },
+                      { label: "Extended", start: "10:00", end: "19:00" },
                     ].map((preset) => (
                       <Button
                         key={preset.label}
@@ -587,6 +647,7 @@ export function TimeSlots() {
                           <span className="text-muted-foreground">
                             {formatTimeForDisplay(slot.startTime)} - {formatTimeForDisplay(slot.endTime)}
                           </span>
+                          <Badge variant="secondary" className="text-[10px]">{slot.appointmentDuration}m</Badge>
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -763,7 +824,7 @@ export function TimeSlots() {
               size="sm"
               className="h-7 text-xs"
               onClick={() => { 
-                setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00" }); 
+                setNewSlot({ day: selectedDay, startTime: "09:00", endTime: "12:00", appointmentDuration: 30 }); 
                 setIsAddDialogOpen(true); 
               }}
             >
@@ -789,7 +850,7 @@ export function TimeSlots() {
                         {formatTimeForDisplay(slot.startTime)} - {formatTimeForDisplay(slot.endTime)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {getSlotDuration(slot)}
+                        {getSlotDuration(slot)} · {slot.appointmentDuration}m/patient
                       </p>
                     </div>
                   </div>

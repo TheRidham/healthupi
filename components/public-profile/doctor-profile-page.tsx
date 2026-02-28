@@ -36,7 +36,7 @@ import {
   RotateCcw,
   LogIn,
 } from "lucide-react"
-import { addDays, format, isSameDay, startOfToday } from "date-fns"
+import { addDays, format, startOfToday, isSameDay, isBefore, setHours, setMinutes } from "date-fns"
 import { BookingModal } from "./booking-modal"
 import { PaymentSuccess } from "./payment-success"
 import { Header } from "@/components/header"
@@ -44,6 +44,64 @@ import { useAuth } from "@/lib/auth-context"
 
 interface DoctorProfilePageProps {
   doctorId?: string
+}
+
+/* ── Mock Available Slots (hardcoded for UI demo) ───────────────── */
+interface SimpleSlot {
+  time: string
+  endTime: string
+  duration: number
+  available: boolean
+}
+
+const TIME_SLOTS_28_FEB: SimpleSlot[] = [
+  { time: "9:00 AM", endTime: "9:30 AM", duration: 30, available: true },
+  { time: "9:30 AM", endTime: "10:00 AM", duration: 30, available: true },
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: false },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: false },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: true },
+  { time: "11:30 AM", endTime: "12:00 PM", duration: 30, available: true },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: false },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+  { time: "3:00 PM", endTime: "3:30 PM", duration: 30, available: true },
+  { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
+  { time: "4:00 PM", endTime: "4:30 PM", duration: 30, available: true },
+]
+
+const TIME_SLOTS_1_MAR: SimpleSlot[] = [
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: true },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: true },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: false },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: true },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+]
+
+const TIME_SLOTS_OTHER: SimpleSlot[] = [
+  { time: "9:00 AM", endTime: "9:30 AM", duration: 30, available: true },
+  { time: "9:30 AM", endTime: "10:00 AM", duration: 30, available: true },
+  { time: "10:00 AM", endTime: "10:30 AM", duration: 30, available: true },
+  { time: "10:30 AM", endTime: "11:00 AM", duration: 30, available: true },
+  { time: "11:00 AM", endTime: "11:30 AM", duration: 30, available: true },
+  { time: "11:30 AM", endTime: "12:00 PM", duration: 30, available: true },
+  { time: "2:00 PM", endTime: "2:30 PM", duration: 30, available: true },
+  { time: "2:30 PM", endTime: "3:00 PM", duration: 30, available: true },
+  { time: "3:00 PM", endTime: "3:30 PM", duration: 30, available: true },
+  { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
+]
+
+function getSlotsForDate(date: Date): SimpleSlot[] {
+  const day = date.getDay()
+  if (day === 0) return [] // Sunday - no slots
+  if (day === 6) return TIME_SLOTS_OTHER.filter(s => parseInt(s.time.split(":")[0]) < 12) // Saturday - morning only
+  
+  const dateStr = format(date, "yyyy-MM-dd")
+  if (dateStr === "2026-02-28") return TIME_SLOTS_28_FEB
+  if (dateStr === "2026-03-01") return TIME_SLOTS_1_MAR
+  return TIME_SLOTS_OTHER
+}
+
+function getSlotCountForDate(date: Date): number {
+  return getSlotsForDate(date).length
 }
 
 /* ── Doctor mock data ─────────────────────────────────────── */
@@ -96,27 +154,6 @@ const FOLLOWUP_SERVICES: ServiceOption[] = [
   { id: "followup-chat", type: "followup", name: "Follow-up Chat", icon: <MessageSquare className="size-5" />, price: 100, enabled: true, description: "Text follow-up for returning patients" },
 ]
 
-const TIME_SLOTS = [
-  "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-  "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM",
-  "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM",
-  "05:00 PM", "05:30 PM", "06:00 PM",
-]
-
-const MORNING_SLOTS = TIME_SLOTS.filter((s) => s.includes("AM"))
-const AFTERNOON_SLOTS = TIME_SLOTS.filter((s) => s.includes("PM"))
-
-// Simulated available slots per day
-function getAvailableSlots(day: Date): string[] {
-  const dayOfWeek = day.getDay()
-  if (dayOfWeek === 0) return [] // Sunday off
-  if (dayOfWeek === 6) return ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM"]
-  return [
-    "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-    "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM",
-  ]
-}
-
 type ViewMode = "main" | "booking" | "followup" | "success"
 type TabMode = "book" | "followup" | "profile"
 
@@ -139,7 +176,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   // Date & slot selection
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDay, setSelectedDay] = useState<Date>(today)
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<SimpleSlot | null>(null)
 
   // Booking modal
   const [showBookingModal, setShowBookingModal] = useState(false)
@@ -170,16 +207,17 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     return Array.from({ length: 7 }, (_, i) => addDays(today, weekOffset * 7 + i))
   }, [today, weekOffset])
 
-  const availableSlots = useMemo(() => getAvailableSlots(selectedDay), [selectedDay])
-  const morningAvailable = MORNING_SLOTS.filter((s) => availableSlots.includes(s))
-  const afternoonAvailable = AFTERNOON_SLOTS.filter((s) => availableSlots.includes(s))
+  const availableSlots = useMemo(() => getSlotsForDate(selectedDay), [selectedDay])
+  const morningSlots = availableSlots.filter(s => s.time.includes("AM"))
+  const afternoonSlots = availableSlots.filter(s => s.time.includes("PM"))
 
   function handleSelectService(service: ServiceOption) {
     setSelectedService(service)
     setSelectedSlot(null)
   }
 
-  function handleSelectSlot(slot: string) {
+  function handleSelectSlot(slot: SimpleSlot) {
+    if (!slot.available) return
     setSelectedSlot(slot)
   }
 
@@ -195,7 +233,9 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         servicePrice: selectedService.price,
         serviceType: selectedService.type,
         date: selectedDay.toISOString(),
-        timeSlot: selectedSlot,
+        timeSlot: selectedSlot.time,
+        timeSlotEnd: selectedSlot.endTime,
+        timeSlotDuration: selectedSlot.duration,
         doctorId: doctorId
       }))
       // Redirect to patient login with return URL
@@ -517,7 +557,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                   {days.map((day) => {
                     const isSelected = isSameDay(day, selectedDay)
                     const isToday = isSameDay(day, today)
-                    const dayAvailable = getAvailableSlots(day).length
+                    const dayAvailable = getSlotCountForDate(day)
                     return (
                       <Button
                         key={day.toISOString()}
@@ -558,54 +598,62 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                   <Card className="py-4">
                     <CardContent className="px-4 py-0">
                       <p className="text-xs font-medium text-foreground mb-3">
-                        {format(selectedDay, "EEEE, MMMM d")} - Available slots
+                        {format(selectedDay, "EEEE, MMMM d")} - {availableSlots.length} slots available
                       </p>
-                      {morningAvailable.length > 0 && (
+                      {morningSlots.length > 0 && (
                         <div className="mb-3">
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Morning</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {morningAvailable.map((slot) => {
-                              const isActive = selectedSlot === slot
+                            {morningSlots.map((slot) => {
+                              const isActive = selectedSlot?.time === slot.time
                               return (
                                 <Toggle
-                                  key={slot}
+                                  key={slot.time}
                                   variant="outline"
                                   size="sm"
                                   pressed={isActive}
                                   onPressedChange={() => handleSelectSlot(slot)}
+                                  disabled={!slot.available}
                                   className={`text-xs h-8 px-3 ${
-                                    isActive
-                                      ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                      : ""
+                                    !slot.available 
+                                      ? "opacity-40 cursor-not-allowed line-through" 
+                                      : isActive
+                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                        : ""
                                   }`}
                                 >
-                                  {slot}
+                                  {slot.time}
+                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
                                 </Toggle>
                               )
                             })}
                           </div>
                         </div>
                       )}
-                      {afternoonAvailable.length > 0 && (
+                      {afternoonSlots.length > 0 && (
                         <div>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Afternoon / Evening</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {afternoonAvailable.map((slot) => {
-                              const isActive = selectedSlot === slot
+                            {afternoonSlots.map((slot) => {
+                              const isActive = selectedSlot?.time === slot.time
                               return (
                                 <Toggle
-                                  key={slot}
+                                  key={slot.time}
                                   variant="outline"
                                   size="sm"
                                   pressed={isActive}
                                   onPressedChange={() => handleSelectSlot(slot)}
+                                  disabled={!slot.available}
                                   className={`text-xs h-8 px-3 ${
-                                    isActive
-                                      ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                      : ""
+                                    !slot.available 
+                                      ? "opacity-40 cursor-not-allowed line-through" 
+                                      : isActive
+                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                        : ""
                                   }`}
                                 >
-                                  {slot}
+                                  {slot.time}
+                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
                                 </Toggle>
                               )
                             })}
@@ -634,7 +682,8 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                       <Separator orientation="vertical" className="h-3.5" />
                       <span>{format(selectedDay, "MMM d")}</span>
                       <Separator orientation="vertical" className="h-3.5" />
-                      <span>{selectedSlot}</span>
+                      <span>{selectedSlot.time} - {selectedSlot.endTime}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{selectedSlot.duration}m</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Total: <span className="font-semibold text-primary">₹{selectedService.price}</span>
