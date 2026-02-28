@@ -66,14 +66,23 @@ export interface Appointment {
   createdAt: Date
 }
 
-export interface ChatMessage {
-  id: string
-  appointmentId: string
-  senderId: string
-  receiverId: string
-  content: string
-  timestamp: Date
-  read: boolean
+export interface Conversation {
+  id: string;
+  appointmentId?: string | null;
+  type: 'chat' | 'video' | 'audio';
+  participants: { user_id: string; role: 'doctor' | 'patient' }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  type: 'text' | 'image' | 'audio' | 'file';
+  status: 'sent' | 'delivered' | 'read';
+  createdAt: string;
 }
 
 export interface VideoCall {

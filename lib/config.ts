@@ -2,6 +2,12 @@ export const config = {
   appName: "HealthUPI",
   appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
+
+  supabase: {
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || "",
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+  },
   
   // Feature flags
   features: {

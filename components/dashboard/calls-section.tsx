@@ -22,6 +22,7 @@ import {
   Calendar,
   Info,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 type SessionType =
   | "video"
@@ -117,7 +118,7 @@ const MOCK_ACTIVE: ActiveSession[] = [
     status: "live",
   },
   {
-    id: "3",
+    id: "11111111-1111-1111-1111-111111111111",
     patientName: "Priya Patel",
     patientAge: 28,
     type: "chat",
@@ -212,6 +213,7 @@ const FILTER_OPTIONS = [
 ]
 
 export function CallsSection() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<string>("all")
 
   const filteredActive =
@@ -225,6 +227,21 @@ export function CallsSection() {
     if (a.type !== "emergency" && b.type === "emergency") return 1
     return 0
   })
+
+  const handleChatAction = (session: ActiveSession) => {
+    router.push(`/chat/${session.id}`);
+  }
+
+  const handleSessionAction = (session: ActiveSession) => {
+    switch(session.type) {
+      case "chat":
+        handleChatAction(session);
+        break;
+      default:
+        alert("Specify handler for session type.")
+    }
+  }
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -338,6 +355,7 @@ export function CallsSection() {
                       <Button
                         size="sm"
                         variant={session.type === "emergency" ? "destructive" : "default"}
+                        onClick={() => handleSessionAction(session)}
                       >
                         {session.type.includes("chat") ? "Open Chat" : "Join Call"}
                         <ArrowRight className="size-3" />

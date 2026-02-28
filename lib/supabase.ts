@@ -1,5 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js'
+import { config } from './config'
 
+export const supabaseUrl = config.supabase.supabaseUrl
+export const supabaseAnonKey = config.supabase.supabaseAnonKey
 
 export const tables = {
   users: "users",
@@ -8,12 +11,18 @@ export const tables = {
   timeSlots: "time_slots",
   appointments: "appointments",
   payments: "payments",
-  chatMessages: "chat_messages",
+  chatMessages: "messages", // update messaages policy in db to allow authenticated users only
   videoCalls: "video_calls",
   notifications: "notifications",
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+function createSupabase(supabaseUrl: string, supabaseAnonKey: string) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("Supabase credentials not configured")
+  }
+  const supa = createClient(supabaseUrl, supabaseAnonKey)
+  return supa;
+}
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export const supabase = createSupabase(supabaseUrl, supabaseAnonKey);
