@@ -24,7 +24,7 @@ export function Step5Additional({ form, set }: Props) {
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormField label="Base Consultation Fee ($)">
+        <FormField label="Base Consultation Fee (Rs)">
           <Input
             type="number"
             value={form.baseFee}
@@ -56,7 +56,7 @@ export function Step5Additional({ form, set }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FormField label="Member Since">
           <Input
-            type="month"
+            type="date"
             value={form.memberSince}
             onChange={(e) => set("memberSince", e.target.value)}
             className={inputCls}
@@ -101,7 +101,7 @@ export function Step5Additional({ form, set }: Props) {
             ["Registration", form.registrationNo || "—"],
             ["City", form.city || "—"],
             ["Email", form.email || "—"],
-            ["Base Fee", form.baseFee ? `$${form.baseFee}` : "—"],
+            ["Base Fee", form.baseFee ? `Rs ${form.baseFee}` : "—"],
             ["Availability", form.availability],
           ].map(([label, value]) => (
             <span key={label} className="contents">

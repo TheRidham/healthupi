@@ -2,12 +2,7 @@ import { supabase } from "./supabase"
 
 // ── Types ────────────────────────────────────────────────────
 export interface DoctorFormData {
-  // Step 0 — Account (NEW)
-  email: string
-  password: string
-  confirmPassword: string
-
-  // Step 1 — Basic Info
+  //Step 0 — Basic Info
   photo: File | null
   title: string
   firstName: string
@@ -15,14 +10,14 @@ export interface DoctorFormData {
   designation: string
   about: string
 
-  // Step 2 — Professional
+  //Step 1 — Professional
   specialization: string
   subSpecialization: string
   experience: string
   qualifications: string[]
   registrationNo: string
 
-  // Step 3 — Clinic (+ photos NEW)
+  //Step 2 — Clinic (+ photos NEW)
   clinicName: string
   hospital: string
   address: string
@@ -31,17 +26,22 @@ export interface DoctorFormData {
   zip: string
   clinicPhotos: File[]      // ← NEW
 
-  // Step 4 — Contact (email moved to Step 0)
+  //Step 3 — Contact (email moved to Step 0)
   phone: string
   website: string
   languages: string[]
 
-  // Step 5 — Additional
+  //Step 4 — Additional
   baseFee: string
   availability: string
   memberSince: string
   patientsServed: string
   rating: string
+
+  //Step 5 — Account (NEW)
+  email: string
+  password: string
+  confirmPassword: string
 }
 
 export const defaultFormData: DoctorFormData = {
@@ -102,7 +102,7 @@ export async function submitDoctorProfile(form: DoctorFormData, userId: string) 
     const path = `${userId}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage
       .from("doctor-photos")
-      .upload(path, form.photo, { upsert: true })
+      .upload(path, form.photo)
     if (uploadError) throw uploadError
     const { data: urlData } = supabase.storage.from("doctor-photos").getPublicUrl(path)
     photoUrl = urlData.publicUrl
@@ -116,7 +116,7 @@ export async function submitDoctorProfile(form: DoctorFormData, userId: string) 
     const path = `${userId}/clinic/${i}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from("doctor-photos")
-      .upload(path, file, { upsert: true })
+      .upload(path, file)
     if (uploadError) throw uploadError
     const { data: urlData } = supabase.storage.from("doctor-photos").getPublicUrl(path)
     clinicPhotoUrls.push(urlData.publicUrl)
