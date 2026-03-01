@@ -12,7 +12,6 @@ export async function createPatientProfile(data: {
     const { data: profile, error } = await supabase
       .from(tables.patientProfiles)
       .insert({
-        user_id: "281e38c8-0aec-453a-b475-0d252050e47d",
         phone: data.phone,
         name: data.name,
         email: data.email,
