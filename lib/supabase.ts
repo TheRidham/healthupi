@@ -7,6 +7,7 @@ export const supabaseAnonKey = config.supabase.supabaseAnonKey
 export const tables = {
   users: "users",
   doctors: "doctors",
+  patientProfiles: "patient_profiles",
   services: "services",
   timeSlots: "time_slots",
   appointments: "appointments",

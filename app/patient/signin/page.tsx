@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Header } from "@/components/header";
 import { useAuth } from "@/lib/auth-context";
+import { createPatientProfile } from "@/services/patient.service";
 import { Phone, Loader2, ShieldCheck, User, Mail, Calendar } from "lucide-react";
 
 type Step = "phone" | "otp" | "profile";
@@ -111,10 +112,34 @@ function PatientSignInContent() {
       return;
     }
     setLoading(true);
-    login("patient", profileName, phone, profileEmail || undefined);
-    setTimeout(() => {
-      router.push(redirectUrl);
-    }, 500);
+    setError("");
+    
+    // Save to Supabase
+    createPatientProfile({
+      phone,
+      name: profileName,
+      email: profileEmail || undefined,
+      dateOfBirth: profileDob,
+      gender: profileGender,
+    })
+      .then((result) => {
+        if (!result.success) {
+          setError(result.error || "Failed to save profile");
+          setLoading(false);
+          return;
+        }
+        
+        // Login and redirect on success
+        login("patient", profileName, phone, profileEmail || undefined);
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 500);
+      })
+      .catch((err) => {
+        console.error("Error saving profile:", err);
+        setError("An unexpected error occurred");
+        setLoading(false);
+      });
   }
 
   return (

@@ -8,6 +8,17 @@ export interface User {
   createdAt: Date
 }
 
+export interface PatientProfile {
+  id: string
+  phone: string
+  name: string
+  email?: string
+  dateOfBirth: string
+  gender: string
+  createdAt?: Date
+  updatedAt?: Date
+}
+
 export interface Doctor {
   id: string
   userId: string
