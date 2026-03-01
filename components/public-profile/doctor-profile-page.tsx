@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -156,7 +156,6 @@ const FOLLOWUP_SERVICES: ServiceOption[] = [
 ]
 
 type ViewMode = "main" | "booking" | "followup" | "success"
-type TabMode = "book" | "profile"
 
 export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const router = useRouter()
@@ -169,7 +168,6 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
   // Main view state
   const [view, setView] = useState<ViewMode>("main")
-  const [activeTab, setActiveTab] = useState<TabMode>("book")
 
   // Service selection
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(null)
@@ -184,6 +182,23 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
   // Follow-up specific
   const [isFollowUp, setIsFollowUp] = useState(false)
+
+  // Full page vs booking mode
+  const [isBookingMode, setIsBookingMode] = useState(false)
+
+  // Refs for auto-scroll
+  const timeSectionRef = useRef<HTMLDivElement>(null)
+  const continueSectionRef = useRef<HTMLDivElement>(null)
+
+  // Smart auto-scroll function
+  const scrollToElementIfNeeded = (element: HTMLElement | null) => {
+    if (!element) return
+    const rect = element.getBoundingClientRect()
+    const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight
+    if (!isVisible) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }
 
   // Check localStorage for pending booking after login
   useEffect(() => {
@@ -222,11 +237,15 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setSelectedService(service)
     setSelectedSlot(null)
     setIsFollowUp(service.type === "followup")
+    // Auto-scroll to time selection if not visible
+    setTimeout(() => scrollToElementIfNeeded(timeSectionRef.current), 100)
   }
 
   function handleSelectSlot(slot: SimpleSlot) {
     if (!slot.available) return
     setSelectedSlot(slot)
+    // Auto-scroll to continue button if not visible
+    setTimeout(() => scrollToElementIfNeeded(continueSectionRef.current), 100)
   }
 
   function handleContinueToBooking() {
@@ -264,7 +283,6 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setView("main")
     setSelectedService(null)
     setSelectedSlot(null)
-    setActiveTab("book")
   }
 
   // ── Success screen ──
@@ -297,340 +315,336 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* PROFILE VIEW                                                */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {activeTab === "profile" && (
-          <div className="flex flex-col gap-6">
-            {/* Back button */}
-            <Button variant="ghost" size="sm" onClick={() => setActiveTab("book")} className="w-fit -ml-2 gap-1">
-              <ArrowRight className="size-3.5 rotate-180" />
-              Back to Booking
-            </Button>
+        <div className="flex flex-col gap-6">
+          {/* Booking mode - only profile + steps */}
+          {isBookingMode ? (
+            <>
+              {/* Doctor hero card */}
+              <DoctorHeroCard doctor={currentDoctor} />
 
-            {/* Hero card */}
-            <DoctorHeroCard doctor={currentDoctor} />
-
-            {/* Info cards grid */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="py-4">
-                <CardHeader className="px-5 py-0 pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Stethoscope className="size-4 text-primary" />
-                    Professional
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 py-0">
-                  <div className="flex flex-col gap-2.5">
-                    <InfoRow icon={<GraduationCap className="size-3.5" />} label="Experience" value={currentDoctor.experience} />
-                    <InfoRow icon={<ShieldCheck className="size-3.5" />} label="Registration" value={currentDoctor.registrationNumber} />
-                    <InfoRow icon={<Users className="size-3.5" />} label="Patients" value={currentDoctor.patientsServed} />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Languages</span>
-                      <div className="flex gap-1">
-                        {currentDoctor.languages.map((l) => (
-                          <Badge key={l} variant="outline" className="text-[10px] px-1.5">{l}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="py-4">
-                <CardHeader className="px-5 py-0 pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Building2 className="size-4 text-primary" />
-                    Clinic
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 py-0">
-                  <div className="flex flex-col gap-2.5">
-                    <InfoRow icon={<Building2 className="size-3.5" />} label="Clinic" value={currentDoctor.clinicName} />
-                    <InfoRow icon={<Building2 className="size-3.5" />} label="Hospital" value={currentDoctor.hospital} />
-                    <InfoRow icon={<MapPin className="size-3.5" />} label="Address" value={currentDoctor.address} />
-                    <InfoRow icon={<Phone className="size-3.5" />} label="Phone" value={currentDoctor.phone} />
-                    <InfoRow icon={<Globe className="size-3.5" />} label="Website" value={currentDoctor.website} />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Gallery */}
-            <div>
-              <h3 className="text-sm font-semibold text-foreground mb-3">Clinic Photos</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {currentDoctor.galleryImages.map((img) => (
-                  <div key={img.src} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border group">
-                    <Image src={img.src} alt={img.alt} fill className="object-cover transition-transform group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* CTA */}
-            <Card className="py-4 border-primary/20 bg-primary/[0.02]">
-              <CardContent className="px-5 py-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Ready to book?</p>
-                  <p className="text-xs text-muted-foreground">Select a service and schedule your appointment</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => { setActiveTab("book"); setSelectedService(null); setSelectedSlot(null) }}>
-                    Book Appointment
-                    <ArrowRight className="size-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === "book" && (
-          <div className="flex flex-col gap-6">
-            {/* Doctor hero card */}
-            <DoctorHeroCard 
-              doctor={currentDoctor} 
-              showViewProfileButton={true}
-              onViewProfileClick={() => setActiveTab("profile")}
-            />
-
-            {/* Back button for follow-up */}
-            {isFollowUp && (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => { setIsFollowUp(false); setSelectedService(null); setSelectedSlot(null) }} className="w-fit gap-1.5">
+              {/* Back button - changes based on mode */}
+              {isFollowUp ? (
+                <Button variant="ghost" size="sm" onClick={() => { setIsFollowUp(false); setSelectedService(null); setSelectedSlot(null) }} className="w-fit -ml-2 gap-1">
                   <ArrowRight className="size-3.5 rotate-180" />
                   Back to Services
                 </Button>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={() => { setIsBookingMode(false); setSelectedService(null); setSelectedSlot(null); setIsFollowUp(false) }} className="w-fit -ml-2 gap-1">
+                  <ArrowRight className="size-3.5 rotate-180" />
+                  Back to Profile
+                </Button>
+              )}
+
+              {/* Follow-up info card */}
+              {isFollowUp && (
                 <Card className="py-3 border-primary/30 bg-primary/5">
                   <CardContent className="px-5 py-0 flex items-center gap-3">
                     <RotateCcw className="size-4 text-primary shrink-0" />
                     <div>
                       <p className="text-xs font-medium text-foreground">Follow-up Consultation</p>
-                      <p className="text-[11px] text-muted-foreground">Available for patients who consulted within the last 10 days. Reduced rates apply.</p>
+                      <p className="text-[11px] text-muted-foreground">Available for patients who consulted within last 10 days. Reduced rates apply.</p>
                     </div>
                   </CardContent>
                 </Card>
-              </>
-            )}
+              )}
 
-            {/* Step 1 - Select service */}
-            <div>
-              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">1</span>
-                {isFollowUp ? "Select Follow-up Service" : "Select Service"}
-              </h3>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {currentServiceList.filter((s) => s.enabled).map((service) => {
-                  const isActive = selectedService?.id === service.id
-                  return (
-                    <Card
-                      key={service.id}
-                      className={`py-3 cursor-pointer transition-all hover:shadow-sm ${
-                        service.id === "followup" 
-                          ? "border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50"
-                          : isActive
-                            ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
-                            : "hover:border-primary/30"
-                      }`}
-                      onClick={() => handleSelectService(service)}
-                      role="radio"
-                      aria-checked={isActive}
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectService(service) }}
-                    >
-                      <CardContent className="px-4 py-0">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                            isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                          }`}>
-                            {service.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-foreground">{service.name}</span>
-                              {service.price >= 0 && (
-                                <span className="text-sm font-semibold text-primary">₹{service.price}</span>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-muted-foreground">{service.description}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Step 2 - Select time */}
-            {selectedService && (
+              {/* Step 1 - Select service */}
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">2</span>
-                  Pick Date & Time
+                  <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">1</span>
+                  {isFollowUp ? "Select Follow-up Service" : "Select Service"}
                 </h3>
-
-                {/* Week navigation */}
-                <div className="flex items-center justify-between mb-3">
-                  <Button variant="ghost" size="sm" onClick={() => setWeekOffset((p) => Math.max(0, p - 1))} disabled={weekOffset === 0}>
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  <span className="text-xs font-medium text-foreground">
-                    {format(days[0], "MMM d")} - {format(days[6], "MMM d, yyyy")}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => setWeekOffset((p) => p + 1)}>
-                    <ChevronRight className="size-4" />
-                  </Button>
-                </div>
-
-                {/* Day selector */}
-                <div className="grid grid-cols-7 gap-1.5 mb-4">
-                  {days.map((day) => {
-                    const isSelected = isSameDay(day, selectedDay)
-                    const isToday = isSameDay(day, today)
-                    const dayAvailable = getSlotCountForDate(day)
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {currentServiceList.filter((s) => s.enabled).map((service) => {
+                    const isActive = selectedService?.id === service.id
                     return (
-                      <Button
-                        key={day.toISOString()}
-                        variant={isSelected ? "default" : "outline"}
-                        onClick={() => { setSelectedDay(day); setSelectedSlot(null) }}
-                        className={`group flex flex-col items-center gap-0.5 h-auto px-1.5 py-2.5 ${
-                          dayAvailable === 0 ? "opacity-50" : ""
+                      <Card
+                        key={service.id}
+                        className={`py-3 cursor-pointer transition-all hover:shadow-sm ${
+                          service.id === "followup" 
+                            ? "border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50"
+                            : isActive
+                              ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
+                              : "hover:border-primary/30"
                         }`}
-                        disabled={dayAvailable === 0}
+                        onClick={() => handleSelectService(service)}
+                        role="radio"
+                        aria-checked={isActive}
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleSelectService(service) }}
                       >
-                        <span className={`text-[10px] font-medium uppercase transition-colors ${
-                          isSelected ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary-foreground"
-                        }`}>
-                          {format(day, "EEE")}
-                        </span>
-                        <span className={`text-base font-semibold transition-colors ${
-                          isSelected ? "text-primary-foreground" : "text-foreground group-hover:text-primary-foreground"
-                        }`}>
-                          {format(day, "d")}
-                        </span>
-                        {isToday && (
-                          <div className={`size-1 rounded-full ${isSelected ? "bg-primary-foreground" : "bg-primary group-hover:bg-primary-foreground"}`} />
-                        )}
-                        {!isToday && dayAvailable > 0 && (
-                          <span className={`text-[9px] transition-colors ${
-                            isSelected ? "text-primary-foreground/80" : "text-muted-foreground group-hover:text-primary-foreground/80"
-                          }`}>
-                            {dayAvailable}
-                          </span>
-                        )}
-                      </Button>
+                        <CardContent className="px-4 py-0">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                              isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {service.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-foreground">{service.name}</span>
+                                {service.price >= 0 && (
+                                  <span className="text-sm font-semibold text-primary">₹{service.price}</span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{service.description}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     )
                   })}
                 </div>
-
-                {/* Time slots */}
-                {availableSlots.length > 0 ? (
-                  <Card className="py-4">
-                    <CardContent className="px-4 py-0">
-                      <p className="text-xs font-medium text-foreground mb-3">
-                        {format(selectedDay, "EEEE, MMMM d")} - {availableSlots.length} slots available
-                      </p>
-                      {morningSlots.length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Morning</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {morningSlots.map((slot) => {
-                              const isActive = selectedSlot?.time === slot.time
-                              return (
-                                <Toggle
-                                  key={slot.time}
-                                  variant="outline"
-                                  size="sm"
-                                  pressed={isActive}
-                                  onPressedChange={() => handleSelectSlot(slot)}
-                                  disabled={!slot.available}
-                                  className={`text-xs h-8 px-3 ${
-                                    !slot.available 
-                                      ? "opacity-40 cursor-not-allowed line-through" 
-                                      : isActive
-                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                        : ""
-                                  }`}
-                                >
-                                  {slot.time}
-                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
-                                </Toggle>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      {afternoonSlots.length > 0 && (
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Afternoon / Evening</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {afternoonSlots.map((slot) => {
-                              const isActive = selectedSlot?.time === slot.time
-                              return (
-                                <Toggle
-                                  key={slot.time}
-                                  variant="outline"
-                                  size="sm"
-                                  pressed={isActive}
-                                  onPressedChange={() => handleSelectSlot(slot)}
-                                  disabled={!slot.available}
-                                  className={`text-xs h-8 px-3 ${
-                                    !slot.available 
-                                      ? "opacity-40 cursor-not-allowed line-through" 
-                                      : isActive
-                                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                                        : ""
-                                  }`}
-                                >
-                                  {slot.time}
-                                  <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
-                                </Toggle>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="py-8">
-                    <CardContent className="px-5 py-0 text-center">
-                      <p className="text-sm text-muted-foreground">No available slots on this day</p>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
-            )}
 
-            {/* Continue button */}
-            {selectedService && selectedSlot && (
+              {/* Step 2 - Select time */}
+              {selectedService && (
+                <div ref={timeSectionRef}>
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">2</span>
+                    Pick Date & Time
+                  </h3>
+
+                  {/* Week navigation */}
+                  <div className="flex items-center justify-between mb-3">
+                    <Button variant="ghost" size="sm" onClick={() => setWeekOffset((p) => Math.max(0, p - 1))} disabled={weekOffset === 0}>
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <span className="text-xs font-medium text-foreground">
+                      {format(days[0], "MMM d")} - {format(days[6], "MMM d, yyyy")}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setWeekOffset((p) => p + 1)}>
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+
+                  {/* Day selector */}
+                  <div className="grid grid-cols-7 gap-1.5 mb-4">
+                    {days.map((day) => {
+                      const isSelected = isSameDay(day, selectedDay)
+                      const isToday = isSameDay(day, today)
+                      const dayAvailable = getSlotCountForDate(day)
+                      return (
+                        <Button
+                          key={day.toISOString()}
+                          variant={isSelected ? "default" : "outline"}
+                          onClick={() => { setSelectedDay(day); setSelectedSlot(null) }}
+                          className={`group flex flex-col items-center gap-0.5 h-auto px-1.5 py-2.5 ${
+                            dayAvailable === 0 ? "opacity-50" : ""
+                          }`}
+                          disabled={dayAvailable === 0}
+                        >
+                          <span className={`text-[10px] font-medium uppercase transition-colors ${
+                            isSelected ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary-foreground"
+                          }`}>
+                            {format(day, "EEE")}
+                          </span>
+                          <span className={`text-base font-semibold transition-colors ${
+                            isSelected ? "text-primary-foreground" : "text-foreground group-hover:text-primary-foreground"
+                          }`}>
+                            {format(day, "d")}
+                          </span>
+                          {isToday && (
+                            <div className={`size-1 rounded-full ${isSelected ? "bg-primary-foreground" : "bg-primary group-hover:bg-primary-foreground"}`} />
+                          )}
+                          {!isToday && dayAvailable > 0 && (
+                            <span className={`text-[9px] transition-colors ${
+                              isSelected ? "text-primary-foreground/80" : "text-muted-foreground group-hover:text-primary-foreground/80"
+                            }`}>
+                              {dayAvailable}
+                            </span>
+                          )}
+                        </Button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Time slots */}
+                  {availableSlots.length > 0 ? (
+                    <Card className="py-4">
+                      <CardContent className="px-4 py-0">
+                        <p className="text-xs font-medium text-foreground mb-3">
+                          {format(selectedDay, "EEEE, MMMM d")} - {availableSlots.length} slots available
+                        </p>
+                        {morningSlots.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Morning</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {morningSlots.map((slot) => {
+                                const isActive = selectedSlot?.time === slot.time
+                                return (
+                                  <Toggle
+                                    key={slot.time}
+                                    variant="outline"
+                                    size="sm"
+                                    pressed={isActive}
+                                    onPressedChange={() => handleSelectSlot(slot)}
+                                    disabled={!slot.available}
+                                    className={`text-xs h-8 px-3 ${
+                                      !slot.available 
+                                        ? "opacity-40 cursor-not-allowed line-through" 
+                                        : isActive
+                                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                          : ""
+                                    }`}
+                                  >
+                                    {slot.time}
+                                    <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
+                                  </Toggle>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {afternoonSlots.length > 0 && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-2">Afternoon / Evening</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {afternoonSlots.map((slot) => {
+                                const isActive = selectedSlot?.time === slot.time
+                                return (
+                                  <Toggle
+                                    key={slot.time}
+                                    variant="outline"
+                                    size="sm"
+                                    pressed={isActive}
+                                    onPressedChange={() => handleSelectSlot(slot)}
+                                    disabled={!slot.available}
+                                    className={`text-xs h-8 px-3 ${
+                                      !slot.available 
+                                        ? "opacity-40 cursor-not-allowed line-through" 
+                                        : isActive
+                                          ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                          : ""
+                                    }`}
+                                  >
+                                    {slot.time}
+                                    <span className="ml-1 text-[10px] opacity-70">({slot.duration}m)</span>
+                                  </Toggle>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="py-8">
+                      <CardContent className="px-5 py-0 text-center">
+                        <p className="text-sm text-muted-foreground">No available slots on this day</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Continue button */}
+              {selectedService && selectedSlot && (
+                <Card ref={continueSectionRef} className="py-4 border-primary/20 bg-primary/[0.02]">
+                  <CardContent className="px-5 py-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <span>{selectedService.name}</span>
+                        <Separator orientation="vertical" className="h-3.5" />
+                        <span>{format(selectedDay, "MMM d")}</span>
+                        <Separator orientation="vertical" className="h-3.5" />
+                        <span>{selectedSlot.time} - {selectedSlot.endTime}</span>
+                        <Badge variant="secondary" className="text-[10px] h-5">{selectedSlot.duration}m</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Total: <span className="font-semibold text-primary">₹{selectedService.price}</span>
+                      </p>
+                    </div>
+                    <Button onClick={handleContinueToBooking} className="gap-1.5">
+                      Continue
+                      <ArrowRight className="size-3.5" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Full page view - profile + ready to book + info cards */}
+              {/* Doctor hero card */}
+              <DoctorHeroCard doctor={currentDoctor} />
+
+              {/* Ready to book card */}
               <Card className="py-4 border-primary/20 bg-primary/[0.02]">
                 <CardContent className="px-5 py-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <span>{selectedService.name}</span>
-                      <Separator orientation="vertical" className="h-3.5" />
-                      <span>{format(selectedDay, "MMM d")}</span>
-                      <Separator orientation="vertical" className="h-3.5" />
-                      <span>{selectedSlot.time} - {selectedSlot.endTime}</span>
-                      <Badge variant="secondary" className="text-[10px] h-5">{selectedSlot.duration}m</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Total: <span className="font-semibold text-primary">₹{selectedService.price}</span>
-                    </p>
+                    <p className="text-sm font-semibold text-foreground">Ready to book?</p>
+                    <p className="text-xs text-muted-foreground">Select a service and schedule your appointment</p>
                   </div>
-                  <Button onClick={handleContinueToBooking} className="gap-1.5">
-                    Continue
-                    <ArrowRight className="size-3.5" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => setIsBookingMode(true)} className="gap-1.5">
+                      Book Appointment
+                      <ArrowRight className="size-3.5" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        )}
+
+              {/* Info cards grid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Card className="py-4">
+                  <CardHeader className="px-5 py-0 pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Stethoscope className="size-4 text-primary" />
+                      Professional
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 py-0">
+                    <div className="flex flex-col gap-2.5">
+                      <InfoRow icon={<GraduationCap className="size-3.5" />} label="Experience" value={currentDoctor.experience} />
+                      <InfoRow icon={<ShieldCheck className="size-3.5" />} label="Registration" value={currentDoctor.registrationNumber} />
+                      <InfoRow icon={<Users className="size-3.5" />} label="Patients" value={currentDoctor.patientsServed} />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Languages</span>
+                        <div className="flex gap-1">
+                          {currentDoctor.languages.map((l) => (
+                            <Badge key={l} variant="outline" className="text-[10px] px-1.5">{l}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="py-4">
+                  <CardHeader className="px-5 py-0 pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Building2 className="size-4 text-primary" />
+                      Clinic
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 py-0">
+                    <div className="flex flex-col gap-2.5">
+                      <InfoRow icon={<Building2 className="size-3.5" />} label="Clinic" value={currentDoctor.clinicName} />
+                      <InfoRow icon={<Building2 className="size-3.5" />} label="Hospital" value={currentDoctor.hospital} />
+                      <InfoRow icon={<MapPin className="size-3.5" />} label="Address" value={currentDoctor.address} />
+                      <InfoRow icon={<Phone className="size-3.5" />} label="Phone" value={currentDoctor.phone} />
+                      <InfoRow icon={<Globe className="size-3.5" />} label="Website" value={currentDoctor.website} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Gallery */}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Clinic Photos</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {currentDoctor.galleryImages.map((img) => (
+                    <div key={img.src} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border group">
+                      <Image src={img.src} alt={img.alt} fill className="object-cover transition-transform group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </main>
 
       {/* Booking modal */}
@@ -662,15 +676,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   )
 }
 
-function DoctorHeroCard({ 
-  doctor, 
-  showViewProfileButton = false, 
-  onViewProfileClick 
-}: { 
-  doctor: typeof DOCTOR
-  showViewProfileButton?: boolean
-  onViewProfileClick?: () => void
-}) {
+function DoctorHeroCard({ doctor }: { doctor: typeof DOCTOR }) {
   return (
     <Card className="overflow-hidden py-0">
       <div className="relative h-24 bg-gradient-to-br from-primary/20 to-primary/5">
@@ -699,17 +705,6 @@ function DoctorHeroCard({
               <span className="text-sm font-semibold text-foreground">{doctor.rating}</span>
               <span className="text-[10px] text-muted-foreground">({doctor.reviewCount})</span>
             </div>
-            {showViewProfileButton && (
-              <Button 
-                variant="default"
-                size="sm" 
-                className="h-7 gap-1 text-xs"
-                onClick={onViewProfileClick}
-              >
-                <Stethoscope className="size-3" />
-                View Profile
-              </Button>
-            )}
           </div>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed mt-2 line-clamp-2">{doctor.bio}</p>
