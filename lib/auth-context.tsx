@@ -2,81 +2,137 @@
 
 import { useState, useEffect, createContext, useContext } from "react"
 import { supabase } from "@/lib/supabase"
+import { getPatientSession } from "@/services/auth.service"
+import { getPatientProfile } from "@/services/patient.service"
 
 type UserRole = "doctor" | "patient" | null
 
-interface User {
-  role: UserRole
-  name: string
+interface AuthUser {
   id: string
   email?: string
+  name: string
+  role: UserRole
+  avatar?: string
+  createdAt?: Date
 }
 
 interface AuthContextType {
-  user: User | null
-  login: (role: UserRole, name: string, id: string, email?: string) => void
+  user: AuthUser | null
+  patientProfile: any | null
+  login: (user: AuthUser) => void
   logout: () => Promise<void>
   isLoading: boolean
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [patientProfile, setPatientProfile] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Load patient profile from DB
+  const loadPatientProfile = async (userId: string) => {
+    try {
+      const profile = await getPatientProfile(userId)
+      setPatientProfile(profile)
+      return profile
+    } catch (error) {
+      console.error("Error loading patient profile:", error)
+      return null
+    }
+  }
+
   useEffect(() => {
-    // Check Supabase session on load
-    const checkSession = async () => {
+    const initAuth = async () => {
       try {
+        // Step 1: Check Supabase session (for doctors)
         const { data: { session } } = await supabase.auth.getSession()
-        
+
         if (session?.user) {
-          // User is logged in via Supabase
-          const email = session.user.email || ""
-          
-          // Determine role based on email or metadata
-          // For now, assume doctors use supabase auth
-          const userData: User = {
-            role: "doctor",
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || "Doctor",
-            id: session.user.id,
-            email: email
+          // Check if this is a doctor by looking up doctor_profiles
+          const { data: doctorProfile } = await supabase
+            .from('doctor_profiles')
+            .select('user_id, email, first_name, last_name')
+            .eq('user_id', session.user.id)
+            .single()
+
+          if (doctorProfile) {
+            // User is a doctor
+            const userData: AuthUser = {
+              id: session.user.id,
+              role: "doctor",
+              name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
+              email: doctorProfile.email,
+              createdAt: new Date(),
+            }
+            setUser(userData)
+            setIsLoading(false)
+            return
+          }
+        }
+
+        // Step 2: Check patient session (for phone-based auth)
+        const patientSession = getPatientSession()
+
+        console.log('[Auth Context] Patient session from localStorage:', patientSession)
+
+        if (patientSession?.userId && patientSession?.role === 'patient') {
+          // Load patient profile first
+          const profile = await loadPatientProfile(patientSession.userId)
+
+          // User is a patient
+          const userData: AuthUser = {
+            id: patientSession.userId,
+            role: "patient",
+            name: profile?.name || "", // Use profile name
+            email: profile?.email || undefined,
+            createdAt: new Date(),
           }
           setUser(userData)
-          localStorage.setItem("healthupi_user", JSON.stringify(userData))
-        } else {
-          // Check localStorage for patient login
-          const stored = localStorage.getItem("healthupi_user")
-          if (stored) {
-            try {
-              setUser(JSON.parse(stored))
-            } catch {
-              localStorage.removeItem("healthupi_user")
-            }
-          }
+
+          console.log('[Auth Context] Set patient user:', userData)
+
+          setIsLoading(false)
+          return
         }
+
+        // Step 3: No session found
+        setIsLoading(false)
       } catch (error) {
         console.error("Error checking session:", error)
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
 
-    checkSession()
+    initAuth()
 
-    // Listen for auth changes
+    // Listen for Supabase auth state changes (for doctors)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const userData: User = {
-          role: "doctor",
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || "Doctor",
-          id: session.user.id,
-          email: session.user.email
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Check if doctor
+        const { data: doctorProfile } = await supabase
+          .from('doctor_profiles')
+          .select('user_id, email, first_name, last_name')
+          .eq('user_id', session.user.id)
+          .single()
+
+        if (doctorProfile) {
+          const userData: AuthUser = {
+            id: session.user.id,
+            role: "doctor",
+            name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
+            email: doctorProfile.email,
+            createdAt: new Date(),
+          }
+          setUser(userData)
+          return
         }
-        setUser(userData)
-        localStorage.setItem("healthupi_user", JSON.stringify(userData))
-      } else if (event === "SIGNED_OUT") {
+      } else if (event === 'SIGNED_OUT') {
+        // Clear all auth state
         setUser(null)
+        setPatientProfile(null)
         localStorage.removeItem("healthupi_user")
       }
     })
@@ -86,24 +142,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const login = (role: UserRole, name: string, id: string, email?: string) => {
-    const newUser = { role, name, id, email }
-    setUser(newUser)
-    localStorage.setItem("healthupi_user", JSON.stringify(newUser))
+  const login = (userData: AuthUser) => {
+    console.log('[Auth Context] Setting user:', userData)
+    setUser(userData)
+
+    // Save to localStorage for persistence
+    localStorage.setItem("healthupi_user", JSON.stringify(userData))
+
+    // If patient, load profile
+    if (userData.role === 'patient') {
+      console.log('[Auth Context] Loading patient profile for userId:', userData.id)
+      loadPatientProfile(userData.id)
+    }
   }
 
   const logout = async () => {
     try {
+      // Sign out from Supabase (for doctors)
       await supabase.auth.signOut()
     } catch (error) {
       console.error("Error signing out:", error)
     }
+
+    // Clear all state
     setUser(null)
+    setPatientProfile(null)
     localStorage.removeItem("healthupi_user")
+    localStorage.removeItem("patient_session")
+  }
+
+  const refreshProfile = async () => {
+    if (user?.role === 'patient' && user?.id) {
+      await loadPatientProfile(user.id)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, patientProfile, login, logout, isLoading, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

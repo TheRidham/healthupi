@@ -35,6 +35,8 @@ import {
   ShieldCheck,
   RotateCcw,
   LogIn,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { addDays, format, startOfToday, isSameDay, isBefore, setHours, setMinutes } from "date-fns"
 import { BookingModal } from "./booking-modal"
@@ -44,6 +46,39 @@ import { useAuth } from "@/lib/auth-context"
 
 interface DoctorProfilePageProps {
   doctorId?: string
+}
+
+interface DoctorData {
+  id: string
+  user_id: string
+  name: string
+  title: string
+  specialization: string
+  subSpecialization: string
+  experience: string
+  experience_years: number
+  qualifications: string[]
+  registrationNumber: string
+  clinicName: string
+  hospital?: string
+  address: string
+  city?: string
+  state?: string
+  zip?: string
+  phone?: string
+  email?: string
+  website?: string
+  languages: string[]
+  base_fee?: number
+  availability?: string
+  rating?: number
+  reviewCount?: number
+  patientsServed?: string
+  bio?: string
+  avatar?: string
+  clinicPhotoUrls?: string[]
+  galleryImages?: { src: string; alt: string }[]
+  services?: any[]
 }
 
 /* ── Mock Available Slots (hardcoded for UI demo) ───────────────── */
@@ -89,8 +124,34 @@ const TIME_SLOTS_OTHER: SimpleSlot[] = [
   { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
 ]
 
-function getSlotsForDate(date: Date): SimpleSlot[] {
+function getSlotsForDate(date: Date, apiTimeSlots: any[] = []): SimpleSlot[] {
   const day = date.getDay()
+  
+  // If we have API time slots, use them
+  if (apiTimeSlots.length > 0) {
+    const daySlots = apiTimeSlots.filter(slot => slot.day_of_week === day && slot.is_available)
+    if (daySlots.length === 0) return []
+    
+    return daySlots.map(slot => {
+      // Convert 24hr time to 12hr format
+      const [startH, startM] = (slot.start_time || '00:00:00').split(':').map(Number)
+      const [endH, endM] = (slot.end_time || '00:00:00').split(':').map(Number)
+      
+      const startHour12 = startH % 12 || 12
+      const endHour12 = endH % 12 || 12
+      const startAmpm = startH >= 12 ? 'PM' : 'AM'
+      const endAmpm = endH >= 12 ? 'PM' : 'AM'
+      
+      return {
+        time: `${startHour12}:${startM.toString().padStart(2, '0')} ${startAmpm}`,
+        endTime: `${endHour12}:${endM.toString().padStart(2, '0')} ${endAmpm}`,
+        duration: slot.appointment_duration || 30,
+        available: true
+      }
+    })
+  }
+  
+  // Fallback to hardcoded slots
   if (day === 0) return [] // Sunday - no slots
   if (day === 6) return TIME_SLOTS_OTHER.filter(s => parseInt(s.time.split(":")[0]) < 12) // Saturday - morning only
   
@@ -100,8 +161,8 @@ function getSlotsForDate(date: Date): SimpleSlot[] {
   return TIME_SLOTS_OTHER
 }
 
-function getSlotCountForDate(date: Date): number {
-  return getSlotsForDate(date).length
+function getSlotCountForDate(date: Date, apiTimeSlots: any[] = []): number {
+  return getSlotsForDate(date, apiTimeSlots).length
 }
 
 /* ── Doctor mock data ─────────────────────────────────────── */
@@ -161,10 +222,6 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const router = useRouter()
   const { user } = useAuth()
   const today = startOfToday()
-  
-  // TODO: Replace with actual API call when backend is ready
-  // For now, use mock data. doctorId can be used to fetch specific doctor
-  const currentDoctor = doctorId ? { ...DOCTOR, id: doctorId } : DOCTOR
 
   // Main view state
   const [view, setView] = useState<ViewMode>("main")
@@ -189,6 +246,57 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   // Refs for auto-scroll
   const timeSectionRef = useRef<HTMLDivElement>(null)
   const continueSectionRef = useRef<HTMLDivElement>(null)
+
+  // State for doctor data from API
+  const [doctor, setDoctor] = useState<DoctorData | null>(null)
+  const [loadingDoctor, setLoadingDoctor] = useState(true)
+  const [doctorError, setDoctorError] = useState("")
+  const [timeSlots, setTimeSlots] = useState<any[]>([])
+
+  // Fetch doctor data from API
+  useEffect(() => {
+    const fetchDoctorData = async () => {
+      if (!doctorId) return
+
+      try {
+        const response = await fetch(`/api/doctor/${doctorId}`)
+        const result = await response.json()
+
+        if (result.success) {
+          setDoctor(result.data)
+        } else {
+          setDoctorError(result.error || 'Failed to load doctor profile')
+        }
+      } catch (err) {
+        console.error('[Doctor Profile] Error:', err)
+        setDoctorError('Failed to load doctor profile')
+      } finally {
+        setLoadingDoctor(false)
+      }
+    }
+
+    fetchDoctorData()
+  }, [doctorId])
+
+  // Fetch time slots from API
+  useEffect(() => {
+    const fetchTimeSlots = async () => {
+      if (!doctorId) return
+
+      try {
+        const response = await fetch(`/api/doctor/${doctorId}/timeslots`)
+        const result = await response.json()
+
+        if (result.success && result.data.timeSlots) {
+          setTimeSlots(result.data.timeSlots)
+        }
+      } catch (err) {
+        console.error('[Doctor Profile] Error fetching time slots:', err)
+      }
+    }
+
+    fetchTimeSlots()
+  }, [doctorId])
 
   // Smart auto-scroll function
   const scrollToElementIfNeeded = (element: HTMLElement | null) => {
@@ -219,13 +327,69 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     }
   }, [user])
 
+  // TODO: Replace with actual API call when backend is ready
+  // For now, use mock data. doctorId can be used to fetch specific doctor
+  const currentDoctor = doctor ? {
+    ...DOCTOR,
+    ...doctor,
+    id: doctorId || 'rahul-sharma',
+    // Override with real data
+    name: doctor.name || DOCTOR.name,
+    specialization: doctor.specialization || DOCTOR.specialization,
+    subSpecialization: doctor.subSpecialization || DOCTOR.subSpecialization,
+    experience: doctor.experience || DOCTOR.experience,
+    qualifications: doctor.qualifications || DOCTOR.qualifications,
+    clinicName: doctor.clinicName || DOCTOR.clinicName,
+    address: doctor.address || DOCTOR.address,
+    phone: doctor.phone || DOCTOR.phone,
+    website: doctor.website || DOCTOR.website,
+    rating: doctor.rating || DOCTOR.rating,
+    reviewCount: doctor.reviewCount || DOCTOR.reviewCount,
+    patientsServed: doctor.patientsServed || DOCTOR.patientsServed,
+    bio: doctor.bio || DOCTOR.bio,
+    languages: doctor.languages || DOCTOR.languages,
+    avatar: doctor.avatar || DOCTOR.avatar,
+    galleryImages: doctor.galleryImages || DOCTOR.galleryImages,
+  } : {
+    ...DOCTOR,
+    id: doctorId || 'rahul-sharma'
+  }
+
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(today, weekOffset * 7 + i))
   }, [today, weekOffset])
 
-  const availableSlots = useMemo(() => getSlotsForDate(selectedDay), [selectedDay])
+  const availableSlots = useMemo(() => getSlotsForDate(selectedDay, timeSlots), [selectedDay, timeSlots])
   const morningSlots = availableSlots.filter(s => s.time.includes("AM"))
   const afternoonSlots = availableSlots.filter(s => s.time.includes("PM"))
+
+  // Show loading state
+  if (loadingDoctor) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="size-8 animate-spin mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading doctor profile...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (doctorError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="size-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">Error Loading Profile</h2>
+            <p className="text-muted-foreground mb-4">{doctorError}</p>
+            <Button onClick={() => window.location.href = '/'}>Back to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   function handleSelectService(service: ServiceOption) {
     if (service.id === "followup") {
@@ -285,12 +449,43 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setSelectedSlot(null)
   }
 
+  // Get services from API data or fallback to hardcoded
+  const apiServices = doctor?.services || []
+  
+  // Convert API services to ServiceOption format
+  const realServices: ServiceOption[] = apiServices
+    .filter((s: any) => s.enabled && s.type === 'service')
+    .map((s: any) => ({
+      id: s.id,
+      type: 'service' as const,
+      name: s.name,
+      icon: <Video className="size-5" />,
+      price: s.price || s.fee || 0,
+      enabled: s.enabled,
+      description: s.description || '',
+    }))
+
+  const realFollowUps: ServiceOption[] = apiServices
+    .filter((s: any) => s.enabled && s.type === 'followup')
+    .map((s: any) => ({
+      id: s.id,
+      type: 'followup' as const,
+      name: s.name,
+      icon: <RotateCcw className="size-5" />,
+      price: s.price || s.fee || 0,
+      enabled: s.enabled,
+      description: s.description || '',
+    }))
+
+  // Use real services if available, otherwise fall back to hardcoded
+  const currentServiceList = isFollowUp 
+    ? (realFollowUps.length > 0 ? realFollowUps : FOLLOWUP_SERVICES)
+    : (realServices.length > 0 ? realServices : SERVICES)
+
   // ── Success screen ──
   if (view === "success") {
     return <PaymentSuccess onBack={handleBackToMain} doctorName={currentDoctor.name} />
   }
-
-  const currentServiceList = isFollowUp ? FOLLOWUP_SERVICES : SERVICES
 
   return (
     <div className="min-h-screen bg-background">
@@ -423,7 +618,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                     {days.map((day) => {
                       const isSelected = isSameDay(day, selectedDay)
                       const isToday = isSameDay(day, today)
-                      const dayAvailable = getSlotCountForDate(day)
+                      const dayAvailable = getSlotCountForDate(day, timeSlots)
                       return (
                         <Button
                           key={day.toISOString()}
@@ -656,6 +851,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
           service={selectedService}
           date={selectedDay}
           timeSlot={selectedSlot}
+          doctorId={doctorId || 'rahul-sharma'}
           doctorName={currentDoctor.name}
           isFollowUp={isFollowUp}
         />

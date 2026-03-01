@@ -5,12 +5,12 @@ import { Message } from "@/types"
 function mapMessageFromDB(row: any): Message {
   return {
     id: row.id,
-    conversationId: row.conversation_id,
-    senderId: row.sender_id,
+    conversation_id: row.conversation_id,
+    sender_id: row.sender_id,
     content: row.content,
     type: row.type,
     status: row.status,
-    createdAt: row.created_at,
+    created_at: new Date(row.created_at),
   }
 }
 

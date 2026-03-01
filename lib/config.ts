@@ -6,8 +6,10 @@ export const config = {
   supabase: {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || "",
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || "",
   },
+
   
   // Feature flags
   features: {
@@ -35,4 +37,9 @@ export const config = {
     maxNameLength: 100,
     maxBioLength: 1000,
   },
+}
+
+// Log to verify service role key is loaded
+if (typeof window !== 'undefined') {
+  console.log('[Config] Supabase service role key available:', !!config.supabase.supabaseServiceRoleKey)
 }

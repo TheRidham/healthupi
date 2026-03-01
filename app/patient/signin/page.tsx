@@ -21,47 +21,54 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Header } from "@/components/header";
-import { useAuth } from "@/lib/auth-context";
 import { Phone, Loader2, ShieldCheck, User, Mail, Calendar } from "lucide-react";
+import { sendOtpToPhone, verifyPatientOtp, createPatientAccount } from "@/services/auth.service";
+import { loginPatient } from "@/services/auth.service";
+import { useAuth } from "@/lib/auth-context";
+import { formatPhoneForDB } from "@/lib/utils/phone";
 
 type Step = "phone" | "otp" | "profile";
-
-const EXISTING_USERS: Record<string, { name: string; email: string }> = {
-  "1234567890": { name: "Amita Sharma", email: "amita.sharma@email.com" },
-  "9876543210": { name: "Priya Patel", email: "priya.patel@email.com" },
-};
 
 function PatientSignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/profile";
   const { login } = useAuth();
-  
+
   const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("1234567890");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Profile form for new users
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileDob, setProfileDob] = useState("");
   const [profileGender, setProfileGender] = useState("");
-  
+
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   function handleSendOtp() {
-    if (phone.length < 10) {
-      setError("Please enter a valid phone number");
-      return;
-    }
-    setLoading(true);
+    console.log('[Signin Page] Sending OTP for phone:', phone)
     setError("");
-    setTimeout(() => {
-      setLoading(false);
-      setStep("otp");
-    }, 1000);
+    setLoading(true);
+
+    sendOtpToPhone(phone)
+      .then((result) => {
+        console.log('[Signin Page] OTP send result:', result)
+        setLoading(false);
+        if (result.success) {
+          setStep("otp");
+        } else {
+          setError(result.error || "Failed to send OTP. Please try again.");
+        }
+      })
+      .catch((err) => {
+        console.error('[Signin Page] OTP send error:', err)
+        setLoading(false);
+        setError("An error occurred. Please try again.");
+      });
   }
 
   function handleOtpChange(index: number, value: string) {
@@ -83,38 +90,114 @@ function PatientSignInContent() {
   }
 
   function handleVerifyOtp() {
-    const code = otp.join("");
-    if (code !== "123456") {
-      setError("Invalid OTP. Use 123456");
-      return;
-    }
-    
-    // Check if existing user
-    const existingUser = EXISTING_USERS[phone];
-    if (existingUser) {
-      // Existing user - login directly
-      setLoading(true);
-      login("patient", existingUser.name, phone, existingUser.email);
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 500);
-    } else {
-      // New user - show profile form
-      setLoading(false);
-      setStep("profile");
-    }
+    console.log('[Signin Page] Verifying OTP for phone:', phone, 'otp:', otp.join(''))
+    setError("");
+    setLoading(true);
+
+    verifyPatientOtp(phone, otp.join(""))
+      .then((result) => {
+        console.log('[Signin Page] OTP verification result:', result)
+        setLoading(false);
+
+        if (!result.success) {
+          setError(result.error || "Verification failed. Please try again.");
+          return;
+        }
+
+        if (result.isNewUser) {
+          console.log('[Signin Page] New user detected, showing profile form')
+          // New user - show profile form
+          setStep("profile");
+        } else if (result.userId && result.profile) {
+          console.log('[Signin Page] Existing user detected, logging in')
+          // Existing user - login directly
+          loginPatient(result.userId, phone)
+            .then((loginResult) => {
+              console.log('[Signin Page] Login patient result:', loginResult)
+
+              if (loginResult.success) {
+                // Update auth context
+                login({
+                  id: result.userId!,
+                  role: "patient",
+                  name: result.profile.name,
+                  email: result.profile.email,
+                  createdAt: new Date(),
+                });
+
+                console.log('[Signin Page] Auth context updated, redirecting to:', redirectUrl)
+
+                // Redirect
+                setTimeout(() => {
+                  console.log('[Signin Page] Redirecting now...')
+                  router.push(redirectUrl);
+                }, 500);
+              } else {
+                console.error('[Signin Page] Login failed:', loginResult.error)
+                setError(loginResult.error || "Login failed. Please try again.");
+              }
+            })
+            .catch((err) => {
+              console.error('[Signin Page] Login error:', err)
+              setError("An error occurred during login. Please try again.");
+            });
+        } else {
+          console.error('[Signin Page] Unexpected OTP result:', result)
+          setError("Unexpected error. Please try again.");
+        }
+      })
+      .catch((err) => {
+        console.error('[Signin Page] OTP verification error:', err)
+        setLoading(false);
+        setError("An error occurred. Please try again.");
+      });
   }
 
   function handleProfileSubmit() {
+    setError("");
+
     if (!profileName.trim() || !profileDob || !profileGender) {
       setError("Please fill in all required fields");
       return;
     }
+
     setLoading(true);
-    login("patient", profileName, phone, profileEmail || undefined);
-    setTimeout(() => {
-      router.push(redirectUrl);
-    }, 500);
+
+    createPatientAccount({
+      phone,
+      name: profileName,
+      email: profileEmail || undefined,
+      dateOfBirth: profileDob,
+      gender: profileGender,
+    })
+      .then((result) => {
+        setLoading(false);
+
+        if (!result.success) {
+          setError(result.error || "Failed to create account. Please try again.");
+          return;
+        }
+
+        if (result.userId) {
+          // Login the new user
+          login({
+            id: result.userId,
+            role: "patient",
+            name: result.profile?.name || profileName,
+            email: result.profile?.email || profileEmail,
+            createdAt: new Date(),
+          });
+
+          // Redirect
+          setTimeout(() => {
+            router.push(redirectUrl);
+          }, 500);
+        }
+      })
+      .catch((err) => {
+        setLoading(false);
+        setError("An error occurred. Please try again.");
+      });
   }
 
   return (
@@ -126,7 +209,7 @@ function PatientSignInContent() {
             <CardTitle className="text-2xl font-bold">Patient Login / Sign Up</CardTitle>
             <CardDescription>
               {step === "phone" && "Enter your phone number to login or sign up"}
-              {step === "otp" && "Enter the OTP sent to your phone"}
+              {step === "otp" && "Enter OTP sent to your phone"}
               {step === "profile" && "Complete your profile to continue"}
             </CardDescription>
           </CardHeader>
@@ -149,7 +232,7 @@ function PatientSignInContent() {
                   </div>
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button className="w-full" onClick={handleSendOtp} disabled={loading}>
+                <Button className="w-full" onClick={handleSendOtp} disabled={loading || phone.length < 10}>
                   {loading ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -195,7 +278,9 @@ function PatientSignInContent() {
                   </div>
                 </div>
                 {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                <p className="text-xs text-muted-foreground text-center">Dummy OTP: <span className="font-medium">123456</span></p>
+                <p className="text-xs text-muted-foreground text-center">
+                  In development mode, any 6-digit code will be accepted
+                </p>
                 <Button className="w-full" onClick={handleVerifyOtp} disabled={loading || otp.join("").length < 6}>
                   {loading ? (
                     <>

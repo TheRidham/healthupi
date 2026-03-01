@@ -42,8 +42,8 @@ export function Header() {
   }
 
   const displayName = user?.name || (isDoctorDashboard ? "Dr. Rahul Sharma" : "User")
-  const initials = displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-  const avatarSrc = isDoctorDashboard ? "/images/doctor-avatar.jpg" : "/images/user-avatar.jpg"
+  const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+  const avatarSrc = user?.avatar || (isDoctorDashboard ? "/images/doctor-avatar.jpg" : "/images/user-avatar.jpg")
   const searchPlaceholder = isDoctorDashboard ? "Search patients, records..." : isProfilePage ? "Search doctors, appointments..." : ""
 
   return (

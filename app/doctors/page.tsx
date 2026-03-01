@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,6 +23,7 @@ import {
   ArrowRight,
   Stethoscope,
   Filter,
+  Loader2,
 } from "lucide-react"
 
 interface Doctor {
@@ -40,65 +41,6 @@ interface Doctor {
   available: boolean
 }
 
-const MOCK_DOCTORS: Doctor[] = [
-  {
-    id: "rahul-sharma",
-    name: "Dr. Rahul Sharma",
-    title: "Senior Consultant",
-    specialization: "Internal Medicine",
-    subSpecialization: "Cardiology",
-    experience: "15 years",
-    rating: 4.9,
-    reviewCount: 842,
-    clinicName: "Sharma Cardiology Center",
-    location: "New Delhi",
-    avatar: "/images/doctor-avatar.jpg",
-    available: true,
-  },
-  {
-    id: "priya-patel",
-    name: "Dr. Priya Patel",
-    title: "Consultant",
-    specialization: "Dermatology",
-    subSpecialization: "Cosmetic Dermatology",
-    experience: "8 years",
-    rating: 4.8,
-    reviewCount: 523,
-    clinicName: "Skin Care Clinic",
-    location: "Mumbai",
-    avatar: "/images/doctor-avatar.jpg",
-    available: true,
-  },
-  {
-    id: "raj-kumar",
-    name: "Dr. Raj Kumar",
-    title: "Senior Consultant",
-    specialization: "Orthopedics",
-    subSpecialization: "Sports Medicine",
-    experience: "12 years",
-    rating: 4.7,
-    reviewCount: 389,
-    clinicName: "Sports Injury Center",
-    location: "Bangalore",
-    avatar: "/images/doctor-avatar.jpg",
-    available: true,
-  },
-  {
-    id: "anita-reddy",
-    name: "Dr. Anita Reddy",
-    title: "Consultant",
-    specialization: "Pediatrics",
-    subSpecialization: "Neonatology",
-    experience: "10 years",
-    rating: 4.9,
-    reviewCount: 712,
-    clinicName: "Children's Health Center",
-    location: "Chennai",
-    avatar: "/images/doctor-avatar.jpg",
-    available: false,
-  },
-]
-
 const SPECIALIZATIONS = [
   "All Specializations",
   "Internal Medicine",
@@ -115,18 +57,38 @@ export default function DoctorsListPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [specialization, setSpecialization] = useState("All Specializations")
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredDoctors = MOCK_DOCTORS.filter((doctor) => {
-    const matchesSearch =
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.specialization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.clinicName.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesSpec =
-      specialization === "All Specializations" ||
-      doctor.specialization === specialization ||
-      doctor.subSpecialization === specialization
-    return matchesSearch && matchesSpec
-  })
+  // Fetch doctors from API
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const url = `/api/doctors${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}${specialization !== 'All Specializations' ? `&specialization=${encodeURIComponent(specialization)}` : ''}`
+        const response = await fetch(url)
+
+        if (!response.ok) {
+          console.error('[Doctors Page] Error fetching doctors:', response.status)
+          setLoading(false)
+          return
+        }
+
+        const result = await response.json()
+
+        if (result.success) {
+          setDoctors(result.data)
+        } else {
+          console.error('[Doctors Page] API error:', result.error)
+        }
+      } catch (error) {
+        console.error('[Doctors Page] Error:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDoctors()
+  }, [searchQuery, specialization])
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,7 +128,11 @@ export default function DoctorsListPage() {
           </Select>
         </div>
 
-        {filteredDoctors.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="size-8 animate-spin" />
+          </div>
+        ) : doctors.length === 0 ? (
           <Card className="py-12">
             <CardContent className="text-center">
               <Stethoscope className="size-12 text-muted-foreground mx-auto mb-4" />
@@ -185,7 +151,7 @@ export default function DoctorsListPage() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredDoctors.map((doctor) => (
+            {doctors.map((doctor) => (
               <Card
                 key={doctor.id}
                 className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
@@ -260,7 +226,7 @@ export default function DoctorsListPage() {
         )}
 
         <div className="mt-6 text-center text-sm text-muted-foreground">
-          Showing {filteredDoctors.length} of {MOCK_DOCTORS.length} doctors
+          Showing {doctors.length} doctors
         </div>
       </div>
     </div>

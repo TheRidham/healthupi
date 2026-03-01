@@ -1,16 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   Video,
   MessageSquare,
@@ -20,429 +14,186 @@ import {
   ArrowRight,
   User,
   Calendar,
-  Info,
+  Loader2,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
 
-type SessionType =
-  | "video"
-  | "chat"
-  | "followup-video"
-  | "followup-chat"
-  | "emergency"
-
-interface ActiveSession {
+interface AppointmentData {
   id: string
-  patientName: string
-  patientAge: number
-  type: SessionType
-  startedAt: string
-  duration: string
-  status: "live" | "waiting"
+  patient_id: string
+  patient_name: string
+  patient_photo: string
+  service_type: string
+  appointment_date: string
+  start_time: string
+  end_time: string
+  status: string
+  booked_fee: number
+  notes: string
 }
-
-interface UpcomingSession {
-  id: string
-  patientName: string
-  patientAge: number
-  type: SessionType
-  scheduledAt: string
-  scheduledDate: string
-  issue: string
-}
-
-const SESSION_CONFIG: Record<
-  SessionType,
-  {
-    label: string
-    icon: React.ReactNode
-    color: string
-    bgColor: string
-    borderColor: string
-  }
-> = {
-  emergency: {
-    label: "Emergency",
-    icon: <Siren className="size-4" />,
-    color: "text-destructive",
-    bgColor: "bg-destructive/10",
-    borderColor: "border-destructive/30",
-  },
-  video: {
-    label: "Video Call",
-    icon: <Video className="size-4" />,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/20",
-  },
-  chat: {
-    label: "Chat",
-    icon: <MessageSquare className="size-4" />,
-    color: "text-accent",
-    bgColor: "bg-accent/10",
-    borderColor: "border-accent/20",
-  },
-  "followup-video": {
-    label: "Follow-up Video",
-    icon: <RotateCcw className="size-4" />,
-    color: "text-chart-3",
-    bgColor: "bg-chart-3/10",
-    borderColor: "border-chart-3/20",
-  },
-  "followup-chat": {
-    label: "Follow-up Chat",
-    icon: <RotateCcw className="size-4" />,
-    color: "text-chart-4",
-    bgColor: "bg-chart-4/10",
-    borderColor: "border-chart-4/20",
-  },
-}
-
-const MOCK_ACTIVE: ActiveSession[] = [
-  {
-    id: "1",
-    patientName: "Sarah Johnson",
-    patientAge: 34,
-    type: "emergency",
-    startedAt: "2 min ago",
-    duration: "00:02:14",
-    status: "live",
-  },
-  {
-    id: "2",
-    patientName: "Michael Chen",
-    patientAge: 45,
-    type: "video",
-    startedAt: "15 min ago",
-    duration: "00:15:32",
-    status: "live",
-  },
-  {
-    id: "11111111-1111-1111-1111-111111111111",
-    patientName: "Priya Patel",
-    patientAge: 28,
-    type: "chat",
-    startedAt: "5 min ago",
-    duration: "00:05:10",
-    status: "live",
-  },
-  {
-    id: "4",
-    patientName: "James Wilson",
-    patientAge: 52,
-    type: "followup-video",
-    startedAt: "8 min ago",
-    duration: "00:08:45",
-    status: "live",
-  },
-  {
-    id: "5",
-    patientName: "Emily Davis",
-    patientAge: 29,
-    type: "followup-chat",
-    startedAt: "Just now",
-    duration: "00:00:30",
-    status: "waiting",
-  },
-]
-
-const MOCK_UPCOMING: UpcomingSession[] = [
-  {
-    id: "u1",
-    patientName: "Robert Brown",
-    patientAge: 60,
-    type: "video",
-    scheduledAt: "11:00 AM",
-    scheduledDate: "Today",
-    issue: "Routine checkup",
-  },
-  {
-    id: "u2",
-    patientName: "Lisa Anderson",
-    patientAge: 38,
-    type: "chat",
-    scheduledAt: "11:30 AM",
-    scheduledDate: "Today",
-    issue: "Medication follow-up",
-  },
-  {
-    id: "u3",
-    patientName: "David Kim",
-    patientAge: 42,
-    type: "followup-video",
-    scheduledAt: "02:00 PM",
-    scheduledDate: "Today",
-    issue: "Post-surgery review",
-  },
-  {
-    id: "u4",
-    patientName: "Nina Gonzalez",
-    patientAge: 25,
-    type: "video",
-    scheduledAt: "09:00 AM",
-    scheduledDate: "Tomorrow",
-    issue: "Skin consultation",
-  },
-  {
-    id: "u5",
-    patientName: "Tom Harris",
-    patientAge: 55,
-    type: "chat",
-    scheduledAt: "10:30 AM",
-    scheduledDate: "Tomorrow",
-    issue: "Lab results discussion",
-  },
-  {
-    id: "u6",
-    patientName: "Anna White",
-    patientAge: 31,
-    type: "followup-chat",
-    scheduledAt: "03:00 PM",
-    scheduledDate: "Mar 1",
-    issue: "Treatment progress",
-  },
-]
-
-const FILTER_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "emergency", label: "Emergency" },
-  { value: "video", label: "Video" },
-  { value: "chat", label: "Chat" },
-  { value: "followup-video", label: "F/U Video" },
-  { value: "followup-chat", label: "F/U Chat" },
-]
 
 export function CallsSection() {
-  const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<string>("all")
+  const pathname = usePathname()
+  const doctorId = pathname?.split('/')[2] || ''
+  
+  const [todayAppointments, setTodayAppointments] = useState<AppointmentData[]>([])
+  const [upcomingAppointments, setUpcomingAppointments] = useState<AppointmentData[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredActive =
-    activeFilter === "all"
-      ? MOCK_ACTIVE
-      : MOCK_ACTIVE.filter((s) => s.type === activeFilter)
-
-  // Sort: emergencies always first
-  const sortedActive = [...filteredActive].sort((a, b) => {
-    if (a.type === "emergency" && b.type !== "emergency") return -1
-    if (a.type !== "emergency" && b.type === "emergency") return 1
-    return 0
-  })
-
-  const handleChatAction = (session: ActiveSession) => {
-    router.push(`/chat/${session.id}`);
-  }
-
-  const handleSessionAction = (session: ActiveSession) => {
-    switch(session.type) {
-      case "chat":
-        handleChatAction(session);
-        break;
-      default:
-        alert("Specify handler for session type.")
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!doctorId) return
+      
+      try {
+        const response = await fetch(`/api/doctor/${doctorId}/appointments`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          setTodayAppointments(result.data.today || [])
+          setUpcomingAppointments(result.data.upcoming || [])
+        }
+      } catch (err) {
+        console.error('[CallsSection] Error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchAppointments()
+  }, [doctorId])
+
+  const formatTime = (time: string) => {
+    if (!time) return '--:--'
+    const [h, m] = time.split(':')
+    const hour = parseInt(h)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const h12 = hour % 12 || 12
+    return `${h12}:${m} ${ampm}`
   }
 
+  const getServiceIcon = (serviceType: string) => {
+    if (serviceType?.includes('video') || serviceType?.includes('Video')) {
+      return <Video className="size-4" />
+    }
+    return <MessageSquare className="size-4" />
+  }
+
+  const getServiceLabel = (serviceType: string) => {
+    if (serviceType?.includes('video') || serviceType?.includes('Video')) {
+      return 'Video Call'
+    }
+    if (serviceType?.includes('followup') || serviceType?.includes('Follow')) {
+      return 'Follow-up'
+    }
+    if (serviceType?.includes('home') || serviceType?.includes('Home')) {
+      return 'Home Visit'
+    }
+    return 'Chat'
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-8 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Active / Ongoing Sessions */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Active Sessions
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Currently ongoing consultations
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label="Active sessions info">
-                  <Info className="size-4 text-muted-foreground" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Emergency sessions always appear first
-              </TooltipContent>
-            </Tooltip>
-            <div className="flex items-center gap-2">
-              <div className="size-2.5 rounded-full bg-accent animate-pulse" />
-              <span className="text-sm font-medium text-foreground">
-                {MOCK_ACTIVE.length} Live
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter pills */}
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Filter sessions">
-          {FILTER_OPTIONS.map((filter) => (
-            <Button
-              key={filter.value}
-              variant={activeFilter === filter.value ? "default" : "outline"}
-              size="sm"
-              className="rounded-full h-8 px-3.5 text-xs font-medium"
-              onClick={() => setActiveFilter(filter.value)}
-              role="radio"
-              aria-checked={activeFilter === filter.value}
-            >
-              {filter.label}
-            </Button>
-          ))}
-        </div>
-
-        <div className="grid gap-3">
-          {sortedActive.map((session) => {
-            const config = SESSION_CONFIG[session.type]
-            return (
-              <Card
-                key={session.id}
-                className={`py-0 transition-all border ${config.borderColor} ${
-                  session.type === "emergency"
-                    ? "ring-1 ring-destructive/20"
-                    : ""
-                }`}
-              >
-                <CardContent className="px-5 py-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div
-                        className={`flex size-11 shrink-0 items-center justify-center rounded-full ${config.bgColor} ${config.color}`}
-                      >
-                        {config.icon}
-                      </div>
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-foreground">
-                            {session.patientName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {session.patientAge}y
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={`${config.bgColor} ${config.color} border-none text-[10px] px-1.5 py-0`}
-                          >
-                            {config.label}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {session.startedAt}
-                          </span>
-                        </div>
+      {/* Today's Appointments */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+            {todayAppointments.length}
+          </span>
+          Today's Appointments
+        </h3>
+        
+        {todayAppointments.length === 0 ? (
+          <Card className="py-8">
+            <CardContent className="text-center text-muted-foreground">
+              <Calendar className="size-8 mx-auto mb-2 opacity-30" />
+              <p>No appointments scheduled for today</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {todayAppointments.map((apt) => (
+              <Card key={apt.id} className="py-3">
+                <CardContent className="px-4 py-0 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="size-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">{apt.patient_name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {getServiceIcon(apt.service_type)}
+                        <span>{getServiceLabel(apt.service_type)}</span>
+                        <span>•</span>
+                        <Clock className="size-3" />
+                        <span>{formatTime(apt.start_time)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-                          {session.duration}
-                        </span>
-                        {session.status === "live" ? (
-                          <div className="flex items-center gap-1">
-                            <div className="size-1.5 rounded-full bg-accent animate-pulse" />
-                            <span className="text-[10px] font-medium text-accent">
-                              LIVE
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] font-medium text-chart-4">
-                            WAITING
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={session.type === "emergency" ? "destructive" : "default"}
-                        onClick={() => handleSessionAction(session)}
-                      >
-                        {session.type.includes("chat") ? "Open Chat" : "Join Call"}
-                        <ArrowRight className="size-3" />
-                      </Button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={apt.status === 'confirmed' ? 'default' : 'secondary'}>
+                      {apt.status}
+                    </Badge>
+                    <Button size="sm" variant="outline" className="h-8">
+                      Start
+                      <ArrowRight className="size-3 ml-1" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <Separator />
-
-      {/* Upcoming / Scheduled */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Upcoming Schedule
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Booked appointments and scheduled consultations
-            </p>
-          </div>
-          <Badge variant="outline" className="gap-1">
-            <Calendar className="size-3" />
-            {MOCK_UPCOMING.length} upcoming
-          </Badge>
-        </div>
-
-        <div className="grid gap-2">
-          {MOCK_UPCOMING.map((session) => {
-            const config = SESSION_CONFIG[session.type]
-            return (
-              <Card key={session.id} className="py-0">
-                <CardContent className="px-5 py-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                        <User className="size-4" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-foreground">
-                            {session.patientName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {session.patientAge}y
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={`${config.bgColor} ${config.color} border-none text-[10px] px-1.5 py-0`}
-                          >
-                            {config.label}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {session.issue}
-                          </span>
-                        </div>
-                      </div>
+      {/* Upcoming Appointments */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <span className="flex size-5 items-center justify-center rounded-full bg-accent text-accent-foreground text-[10px] font-bold">
+            {upcomingAppointments.length}
+          </span>
+          Upcoming Appointments
+        </h3>
+        
+        {upcomingAppointments.length === 0 ? (
+          <Card className="py-8">
+            <CardContent className="text-center text-muted-foreground">
+              <Calendar className="size-8 mx-auto mb-2 opacity-30" />
+              <p>No upcoming appointments</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {upcomingAppointments.map((apt) => (
+              <Card key={apt.id} className="py-3 opacity-80">
+                <CardContent className="px-4 py-0 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="size-5 text-muted-foreground" />
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1">
-                          <Clock className="size-3 text-muted-foreground" />
-                          <span className="text-sm font-medium text-foreground">
-                            {session.scheduledAt}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">
-                          {session.scheduledDate}
-                        </span>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">{apt.patient_name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="size-3" />
+                        <span>{apt.appointment_date}</span>
+                        <span>•</span>
+                        <Clock className="size-3" />
+                        <span>{formatTime(apt.start_time)}</span>
                       </div>
-                      <Button variant="outline" size="sm">
-                        View
-                        <ArrowRight className="size-3" />
-                      </Button>
                     </div>
                   </div>
+                  <Badge variant="outline">{getServiceLabel(apt.service_type)}</Badge>
                 </CardContent>
               </Card>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

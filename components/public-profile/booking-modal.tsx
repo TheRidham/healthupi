@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/select"
 import {
   ArrowRight,
-  ArrowLeft,
   Upload,
   X,
   Phone,
@@ -34,24 +33,34 @@ import {
   Loader2,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { createBooking } from "@/services/booking.service"
+import { calculateAge } from "@/lib/supabase/patient"
+import { getServiceUuid } from "@/lib/utils/mock-data"
+import type { ServiceOption } from "@/types"
+
+interface TimeSlot {
+  time: string
+  endTime: string
+  duration: number
+}
 
 interface BookingModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
-  service: { id: string; name: string; price: number; icon: React.ReactNode }
+  service: ServiceOption
   date: Date
-  timeSlot: string | { time: string; endTime: string; duration: number }
+  timeSlot: TimeSlot
+  doctorId: string
   doctorName: string
   isFollowUp: boolean
 }
 
-function getTimeSlotDisplay(slot: string | { time: string; endTime: string; duration: number }): string {
-  if (typeof slot === "string") return slot
+type Step = "details" | "processing"
+
+function getTimeSlotDisplay(slot: TimeSlot): string {
   return `${slot.time} - ${slot.endTime}`
 }
-
-type Step = "details" | "otp" | "processing"
 
 export function BookingModal({
   open,
@@ -60,42 +69,45 @@ export function BookingModal({
   service,
   date,
   timeSlot,
+  doctorId,
   doctorName,
   isFollowUp,
 }: BookingModalProps) {
-  const { user } = useAuth()
+  const { user, patientProfile } = useAuth()
   const [step, setStep] = useState<Step>("details")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  // Pre-fill from logged in user data
+  // Form fields
   const [name, setName] = useState("")
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
   const [address, setAddress] = useState("")
   const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("1234567890")
+  const [phone, setPhone] = useState("")
   const [issue, setIssue] = useState("")
 
-  // Pre-fill when modal opens with user data
-  useEffect(() => {
-    if (open && user && user.role === "patient") {
-      setName(user.name || "")
-      setPhone(user.id || "1234567890") // user.id is phone number for patient
-      setEmail((user as any).email || "")
-    }
-  }, [open, user])
-
-  // Follow-up prescription upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // OTP
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
-  const [otpError, setOtpError] = useState("")
-  const [sendingOtp, setSendingOtp] = useState(false)
-  const [verifying, setVerifying] = useState(false)
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Pre-fill when modal opens with user data
+  useEffect(() => {
+    if (open && patientProfile) {
+      setName(patientProfile.name || "")
+      setPhone(patientProfile.phone || "")
+      setEmail(patientProfile.email || "")
+      setGender(patientProfile.gender || "")
+      setAddress(patientProfile.address || "")
 
-  const isFormValid = name.trim() !== "" && age.trim() !== "" && gender !== "" && phone.length >= 10
+      if (patientProfile.date_of_birth) {
+        const calculatedAge = calculateAge(patientProfile.date_of_birth)
+        setAge(calculatedAge.toString())
+      }
+
+      setError("")
+      setUploadedFiles([])
+    }
+  }, [open, patientProfile])
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -105,59 +117,102 @@ export function BookingModal({
   }
 
   function removeFile(index: number) {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  function handleSendOtp() {
-    if (!isFormValid) return
-    setSendingOtp(true)
-    // Simulate OTP send
-    setTimeout(() => {
-      setSendingOtp(false)
-      setStep("otp")
-    }, 1200)
-  }
+  async function handleSubmit() {
+    setError("")
+    setLoading(true)
 
-  function handleOtpChange(index: number, value: string) {
-    if (value.length > 1) value = value.slice(-1)
-    if (!/^\d*$/.test(value)) return
-    const newOtp = [...otp]
-    newOtp[index] = value
-    setOtp(newOtp)
-    setOtpError("")
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus()
-    }
-  }
-
-  function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus()
-    }
-  }
-
-  function handleVerifyOtp() {
-    const code = otp.join("")
-    if (code !== "123456") {
-      setOtpError("Invalid OTP. Use 123456")
+    // Validate form
+    if (!name.trim() || !age.trim() || !gender.trim() || phone.length < 10) {
+      setLoading(false)
       return
     }
-    setVerifying(true)
-    // Simulate verification then redirect to payment
-    setTimeout(() => {
-      setVerifying(false)
+
+    try {
+      // Convert service ID to UUID
+      const serviceUuid = getServiceUuid(service.id)
+      console.log('[Booking Modal] Service UUID:', serviceUuid)
+
+      // Get start time from time slot object and convert to 24-hour format
+      const rawStartTime = timeSlot.time
+      console.log('[Booking Modal] Raw start time:', rawStartTime)
+
+      const timeMatch = rawStartTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+      let startHours = 0
+      let startMins = 0
+
+      if (timeMatch) {
+        startHours = parseInt(timeMatch[1])
+        startMins = parseInt(timeMatch[2])
+        const meridiem = (timeMatch[3] || '').toUpperCase()
+
+        if (meridiem === 'PM' && startHours !== 12) {
+          startHours += 12
+        } else if (meridiem === 'AM' && startHours === 12) {
+          startHours = 0
+        }
+      }
+
+      const startTime = `${startHours.toString().padStart(2, '0')}:${startMins.toString().padStart(2, '0')}`
+      console.log('[Booking Modal] Converted start time:', startTime)
+
+      // Calculate end time
+      const endMinutes = 30
+      let endHrs = startHours
+      let endMins = startMins + endMinutes
+
+      if (endMins >= 60) {
+        endHrs += Math.floor(endMins / 60)
+        endMins = endMins % 60
+      }
+      endHrs = endHrs % 24
+
+      const endTime = `${endHrs.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
+
+      const bookingData = {
+        doctor_id: doctorId,
+        patient_id: user?.id || "",
+        service_id: serviceUuid,
+        appointment_date: format(date, 'yyyy-MM-dd'),
+        start_time: startTime,
+        end_time: endTime,
+        notes: issue,
+        paymentAmount: service.price,
+        paymentMethod: "upi",
+      }
+
+      console.log('[Booking Modal] Booking data:', bookingData)
+
+      const result = await createBooking(bookingData)
+
+      if (!result.success) {
+        setError(result.error || "Failed to create booking. Please try again.")
+        setLoading(false)
+        return
+      }
+
+      // Success - move to processing step
       setStep("processing")
-      // Simulate payment gateway redirect + success
+
       setTimeout(() => {
         onSuccess()
       }, 2000)
-    }, 1500)
+    } catch (error: any) {
+      console.error('[Booking Modal] Error submitting booking:', error)
+      setError("An error occurred. Please try again.")
+      setLoading(false)
+    }
   }
 
+  const isFormValid = name.trim() !== "" && age.trim() !== "" && gender.trim() !== "" && phone.length >= 10
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog open={open} onOpenChange={(v) => {
+      if (!v && onClose) onClose()
+    }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* ── STEP: Patient details ── */}
         {step === "details" && (
           <>
             <DialogHeader>
@@ -209,6 +264,7 @@ export function BookingModal({
                     className="h-9 text-sm"
                   />
                 </div>
+
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="patient-age" className="text-xs font-medium">
                     Age <span className="text-destructive">*</span>
@@ -222,81 +278,81 @@ export function BookingModal({
                     className="h-9 text-sm"
                   />
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="patient-gender" className="text-xs font-medium">
-                  Gender <span className="text-destructive">*</span>
-                </Label>
-                <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger id="patient-gender" className="h-9 text-sm">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer-not">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="patient-gender" className="text-xs font-medium">
+                    Gender <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={gender} onValueChange={setGender}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="prefer-not">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="patient-phone" className="text-xs font-medium">
-                  Mobile Number <span className="text-destructive">*</span>
-                  <span className="text-muted-foreground font-normal ml-1">(for OTP verification)</span>
-                </Label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="patient-phone" className="text-xs font-medium">
+                    Mobile Number <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="patient-phone"
+                      type="tel"
+                      placeholder="+91 98765 43210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="h-9 text-sm"
+                      disabled
+                    />
+                    <Phone className="size-4 text-muted-foreground" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="patient-email" className="text-xs font-medium">
+                    Email <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+                  </Label>
                   <Input
-                    id="patient-phone"
-                    type="tel"
-                    placeholder="+1 (415) 555-0100"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    id="patient-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="h-9 text-sm"
                   />
-                  <Phone className="size-4 text-muted-foreground shrink-0" />
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="patient-email" className="text-xs font-medium">
-                  Email <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="patient-email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="patient-address" className="text-xs font-medium">
+                    Address <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+                  </Label>
+                  <Input
+                    id="patient-address"
+                    placeholder="123 Main St, City"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="patient-address" className="text-xs font-medium">
-                  Address <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="patient-address"
-                  placeholder="123 Main St, City"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="patient-issue" className="text-xs font-medium">
-                  Describe your issue <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="patient-issue"
-                  placeholder="Brief description of your concern"
-                  value={issue}
-                  onChange={(e) => setIssue(e.target.value)}
-                  className="h-9 text-sm"
-                />
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="patient-issue" className="text-xs font-medium">
+                    Describe your issue <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+                  </Label>
+                  <Input
+                    id="patient-issue"
+                    placeholder="Brief description of your concern"
+                    value={issue}
+                    onChange={(e) => setIssue(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
 
               {/* Follow-up: prescription upload */}
@@ -306,171 +362,101 @@ export function BookingModal({
                     Upload Prescription / Reports
                     <span className="text-muted-foreground font-normal ml-1">(optional)</span>
                   </Label>
-                  <div
-                    className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-4 cursor-pointer hover:border-primary/40 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => { if (e.key === "Enter") fileInputRef.current?.click() }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Upload files"
-                  >
-                    <Upload className="size-5 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground text-center">
-                      Click to upload prescription, reports, or relevant media
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf,.doc,.docx"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                  </div>
-                  {uploadedFiles.length > 0 && (
-                    <div className="flex flex-col gap-1.5 mt-1">
-                      {uploadedFiles.map((file, i) => (
-                        <div key={`${file.name}-${i}`} className="flex items-center justify-between bg-muted rounded-md px-3 py-1.5">
-                          <span className="text-xs text-foreground truncate max-w-[250px]">{file.name}</span>
-                          <Button variant="ghost" size="icon-sm" onClick={() => removeFile(i)} aria-label="Remove file">
-                            <X className="size-3" />
-                          </Button>
-                        </div>
-                      ))}
+                  <div>
+                    <div
+                      className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed hover:border-primary/40 transition-colors cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          fileInputRef.current?.click()
+                        }
+                      }}
+                      role="button"
+                      aria-label="Upload files"
+                      tabIndex={0}
+                    >
+                      <Upload className="size-5 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        Click to upload prescription, reports, or relevant media
+                      </p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
                     </div>
-                  )}
+
+                    {uploadedFiles.length > 0 && (
+                      <div className="flex flex-col gap-1 mt-1">
+                        {uploadedFiles.map((file, i) => (
+                          <div
+                            key={`${file.name}-${i}`}
+                            className="flex items-center justify-between bg-muted rounded-md px-3 py-2"
+                          >
+                            <span className="text-xs text-foreground truncate max-w-[250px]">
+                              {file.name}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removeFile(i)}
+                              aria-label={`Remove ${file.name}`}
+                            >
+                              <X className="size-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {error && <p className="text-sm text-destructive text-center">{error}</p>}
             </div>
 
-            {/* Continue */}
             <div className="flex items-center justify-between pt-2">
               <Button variant="ghost" size="sm" onClick={onClose}>
                 Cancel
               </Button>
               <Button
                 size="sm"
-                disabled={!isFormValid || sendingOtp}
-                onClick={handleSendOtp}
+                disabled={!isFormValid || loading}
+                onClick={handleSubmit}
                 className="gap-1.5"
               >
-                {sendingOtp ? (
+                {loading ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Sending OTP...
+                    <Loader2 className="size-3.5 mr-2 animate-spin" />
+                    Processing...
                   </>
                 ) : (
                   <>
-                    Verify & Continue
+                    Book Appointment
                     <ArrowRight className="size-3.5" />
                   </>
                 )}
               </Button>
             </div>
-          </>
-        )}
+          </>)}
 
-        {/* ── STEP: OTP Verification ── */}
-        {step === "otp" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="size-5 text-primary" />
-                Verify Your Number
-              </DialogTitle>
-              <DialogDescription>
-                We sent a 6-digit code to <span className="font-medium text-foreground">{phone}</span>
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col items-center gap-4 py-2">
-              <div className="flex items-center gap-2">
-                {otp.map((digit, i) => (
-                  <Input
-                    key={i}
-                    ref={(el) => { otpRefs.current[i] = el }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    className="size-11 text-center text-lg font-semibold"
-                    aria-label={`OTP digit ${i + 1}`}
-                  />
-                ))}
+          {/* Processing step */}
+          {step === "processing" && (
+            <div className="flex flex-col items-center gap-4 py-12">
+              <Loader2 className="size-8 text-primary animate-spin" />
+              <div className="text-center text-sm">
+                <p className="font-semibold text-foreground">Processing Booking</p>
+                <p className="text-xs text-muted-foreground mt-1">Please wait while we confirm your appointment...</p>
               </div>
-              {otpError && (
-                <p className="text-xs text-destructive">{otpError}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {"Didn't receive the code?"}{" "}
-                <button className="text-primary font-medium hover:underline" onClick={() => { setOtp(["", "", "", "", "", ""]); }}>
-                  Resend
-                </button>
-              </p>
             </div>
+          )}
 
-            {/* Summary reminder */}
-            <Card className="py-3 bg-muted/50">
-              <CardContent className="px-4 py-0">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-muted-foreground">Booking for</span>
-                    <span className="font-medium text-foreground">{name}, {age}yrs</span>
-                  </div>
-                  <Separator orientation="vertical" className="h-6" />
-                  <div className="flex flex-col gap-0.5 items-center">
-                    <span className="text-muted-foreground">{service.name}</span>
-                    <span className="font-medium text-foreground">{format(date, "MMM d")} at {getTimeSlotDisplay(timeSlot)}</span>
-                  </div>
-                  <Separator orientation="vertical" className="h-6" />
-                  <div className="flex flex-col gap-0.5 items-end">
-                    <span className="text-muted-foreground">Amount</span>
-                    <span className="font-semibold text-primary">₹{service.price}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex items-center justify-between pt-1">
-              <Button variant="ghost" size="sm" onClick={() => setStep("details")} className="gap-1">
-                <ArrowLeft className="size-3.5" />
-                Back
-              </Button>
-              <Button
-                size="sm"
-                disabled={otp.join("").length < 6 || verifying}
-                onClick={handleVerifyOtp}
-                className="gap-1.5"
-              >
-                {verifying ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    Verify & Pay ₹{service.price}
-                    <ArrowRight className="size-3.5" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* ── STEP: Processing payment ── */}
-        {step === "processing" && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="size-8 text-primary animate-spin" />
-            <div className="text-center">
-              <p className="text-sm font-semibold text-foreground">Processing Payment</p>
-              <p className="text-xs text-muted-foreground mt-1">Redirecting to payment gateway...</p>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
+          {/* ── STEP: Success ── */}
+          {/* Handled by parent calling onSuccess */}
+        </DialogContent>
+      </Dialog>
+    )
 }

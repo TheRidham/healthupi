@@ -45,13 +45,19 @@ export default function SignInForm() {
       setError(error.message)
     } else if (data.user) {
       // Get doctor name from metadata or email
-      const doctorName = data.user.user_metadata?.name || 
-                        data.user.email?.split('@')[0] || 
+      const doctorName = data.user.user_metadata?.name ||
+                        data.user.email?.split('@')[0] ||
                         "Doctor"
       const doctorId = data.user.user_metadata?.doctor_id || data.user.id
-      
-      login("doctor", doctorName, doctorId, data.user.email || "")
-      
+
+      login({
+        id: doctorId,
+        role: "doctor",
+        name: doctorName,
+        email: data.user.email,
+        createdAt: new Date(),
+      })
+
       // Wait a moment for context to update
       setSuccess(`Welcome back, ${doctorName}!`)
       setTimeout(() => {
