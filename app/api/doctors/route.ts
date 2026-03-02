@@ -1,46 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest } from 'next/server'
+import { supabaseAdmin } from '@/lib/server/supabase-admin'
+import { successResponse, errorResponse } from '@/lib/server/response'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
-  : null
-
-// Map user_id to slug for routing
 function userToSlug(firstName: string, lastName: string): string {
   return `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
 }
 
 export async function GET(request: NextRequest) {
-  // Check if Supabase client is available
-  if (!supabaseAdmin) {
-    console.error('[API Doctors] Supabase client not initialized:', {
-      urlSet: !!supabaseUrl,
-      serviceKeySet: !!supabaseServiceRoleKey,
-    })
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Server configuration error: Missing Supabase environment variables' 
-      },
-      { status: 500 }
-    )
-  }
-
   try {
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('search')
     const specialization = searchParams.get('specialization')
 
-    console.log('[API Doctors] Fetching doctors:', { search, specialization })
-
-    let query = supabaseAdmin
+    const { data: doctors, error } = await supabaseAdmin
       .from('doctor_profiles')
       .select(`
         user_id,
-        id,
         first_name,
         last_name,
         title,
@@ -50,13 +25,10 @@ export async function GET(request: NextRequest) {
         experience_years,
         about,
         qualifications,
-        registration_no,
         clinic_name,
         hospital,
-        address,
         city,
         state,
-        zip,
         phone,
         email,
         website,
@@ -70,31 +42,16 @@ export async function GET(request: NextRequest) {
       `)
       .order('rating', { ascending: false })
 
-    const { data: doctors, error } = await query
-
     if (error) {
-      console.error('[API Doctors] Database error:', error)
-      console.error('[API Doctors] Error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      })
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      )
+      return errorResponse(error.message, 500)
     }
 
-    // Format doctors for frontend
     const formattedDoctors = (doctors || []).map(doctor => {
       const slug = userToSlug(doctor.first_name, doctor.last_name)
-
       return {
-        id: slug, // Use slug as ID for routing
+        id: slug,
         user_id: doctor.user_id,
         name: `${doctor.title} ${doctor.first_name} ${doctor.last_name}`.trim(),
-        title: '',
         specialization: doctor.specialization || '',
         subSpecialization: doctor.sub_specialization || '',
         experience: `${doctor.experience_years} years`,
@@ -103,7 +60,6 @@ export async function GET(request: NextRequest) {
         reviewCount: doctor.patients_served ? parseInt(String(doctor.patients_served)) : 0,
         clinicName: doctor.clinic_name || '',
         location: `${doctor.city}, ${doctor.state}`.trim(),
-        address: doctor.address,
         phone: doctor.phone,
         email: doctor.email,
         website: doctor.website,
@@ -119,7 +75,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Filter client-side if needed
     let filtered = formattedDoctors
     if (search) {
       const searchLower = search.toLowerCase()
@@ -137,17 +92,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('[API Doctors] Returning:', filtered.length, 'doctors')
-
-    return NextResponse.json({
-      success: true,
-      data: filtered,
-    })
-  } catch (error: any) {
-    console.error('[API Doctors] Unexpected error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return successResponse(filtered)
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }

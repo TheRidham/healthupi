@@ -1,41 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest } from 'next/server'
+import { supabaseAdmin } from '@/lib/server/supabase-admin'
+import { findDoctor } from '@/lib/server/doctor'
+import { requireDoctor, handleAuthError } from '@/lib/server/auth'
+import { successResponse, errorResponse } from '@/lib/server/response'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+async function validateTimeSlotInput(body: any): Promise<{ valid: boolean; error?: string }> {
+  const { day_of_week, start_time, end_time } = body
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-async function findDoctor(doctorIdOrSlug: string): Promise<any> {
-  const isUuid = doctorIdOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-  
-  if (isUuid) {
-    const result = await supabaseAdmin
-      .from('doctor_profiles')
-      .select('user_id, first_name, last_name')
-      .eq('user_id', doctorIdOrSlug)
-      .single()
-    return result.data
+  if (typeof day_of_week !== 'number' || day_of_week < 0 || day_of_week > 6) {
+    return { valid: false, error: 'day_of_week must be 0-6' }
   }
-  
-  const parts = doctorIdOrSlug.split('-')
-  if (parts.length >= 2) {
-    const firstName = parts[0]
-    const lastName = parts.slice(1).join(' ')
-    
-    const result = await supabaseAdmin
-      .from('doctor_profiles')
-      .select('user_id, first_name, last_name')
-      .ilike('first_name', firstName)
-      .ilike('last_name', lastName)
-      .limit(1)
-      .single()
-    return result.data
+
+  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/
+  if (!timeRegex.test(start_time) || !timeRegex.test(end_time)) {
+    return { valid: false, error: 'Invalid time format (HH:MM or HH:MM:SS)' }
   }
-  return null
+
+  const start = start_time.split(':').slice(0,2).join(':')
+  const end = end_time.split(':').slice(0,2).join(':')
+  
+  if (start >= end) {
+    return { valid: false, error: 'start_time must be before end_time' }
+  }
+
+  return { valid: true }
 }
 
-// GET: Fetch doctor's time slots
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -45,7 +35,7 @@ export async function GET(
     const doctor = await findDoctor(doctorId)
 
     if (!doctor) {
-      return NextResponse.json({ success: false, error: 'Doctor not found' }, { status: 404 })
+      return errorResponse('Doctor not found', 404)
     }
 
     const { data: timeSlots } = await supabaseAdmin
@@ -55,32 +45,39 @@ export async function GET(
       .order('day_of_week')
       .order('start_time')
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        doctor: { user_id: doctor.user_id, name: `${doctor.first_name} ${doctor.last_name}` },
-        timeSlots: timeSlots || [],
-      },
+    return successResponse({
+      doctor: { user_id: doctor.user_id, name: `${doctor.first_name} ${doctor.last_name}` },
+      timeSlots: timeSlots || [],
     })
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
 
-// POST: Add a new time slot
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authUser = await requireDoctor(request)
     const { id: doctorId } = await context.params
     const body = await request.json()
-    const { day_of_week, start_time, end_time, appointment_duration = 30, is_available = true } = body
 
     const doctor = await findDoctor(doctorId)
     if (!doctor) {
-      return NextResponse.json({ success: false, error: 'Doctor not found' }, { status: 404 })
+      return errorResponse('Doctor not found', 404)
     }
+
+    if (doctor.user_id !== authUser.id) {
+      return errorResponse('Cannot modify another doctor\'s data', 403)
+    }
+
+    const validation = await validateTimeSlotInput(body)
+    if (!validation.valid) {
+      return errorResponse(validation.error!, 400)
+    }
+
+    const { day_of_week, start_time, end_time, appointment_duration = 30, is_available = true } = body
 
     const { data: newSlot, error } = await supabaseAdmin
       .from('time_slots')
@@ -96,26 +93,49 @@ export async function POST(
       .single()
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return errorResponse(error.message, 500)
     }
 
-    return NextResponse.json({ success: true, data: newSlot })
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    return successResponse(newSlot)
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AuthError') {
+      return handleAuthError(error)
+    }
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
 
-// DELETE: Remove a time slot
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authUser = await requireDoctor(request)
+    const { id: doctorId } = await context.params
     const { searchParams } = new URL(request.url)
     const slot_id = searchParams.get('slot_id')
 
     if (!slot_id) {
-      return NextResponse.json({ success: false, error: 'slot_id required' }, { status: 400 })
+      return errorResponse('slot_id required', 400)
+    }
+
+    const doctor = await findDoctor(doctorId)
+    if (!doctor) {
+      return errorResponse('Doctor not found', 404)
+    }
+
+    if (doctor.user_id !== authUser.id) {
+      return errorResponse('Cannot modify another doctor\'s data', 403)
+    }
+
+    const { data: slot } = await supabaseAdmin
+      .from('time_slots')
+      .select('doctor_id')
+      .eq('id', slot_id)
+      .single()
+
+    if (!slot || slot.doctor_id !== doctor.user_id) {
+      return errorResponse('Time slot not found', 404)
     }
 
     const { error } = await supabaseAdmin
@@ -124,11 +144,14 @@ export async function DELETE(
       .eq('id', slot_id)
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return errorResponse(error.message, 500)
     }
 
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    return successResponse({ message: 'Time slot deleted' })
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AuthError') {
+      return handleAuthError(error)
+    }
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }

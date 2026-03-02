@@ -124,45 +124,73 @@ const TIME_SLOTS_OTHER: SimpleSlot[] = [
   { time: "3:30 PM", endTime: "4:00 PM", duration: 30, available: true },
 ]
 
-function getSlotsForDate(date: Date, apiTimeSlots: any[] = []): SimpleSlot[] {
+function convertToMinutes(timeStr: string): number {
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+function minutesToTime12h(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60) % 24
+  const minutes = totalMinutes % 60
+  const hour12 = hours % 12 || 12
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`
+}
+
+function getSlotsForDate(date: Date, apiTimeSlots: any[] = [], appointments: any[] = []): SimpleSlot[] {
   const day = date.getDay()
+  const dateStr = format(date, 'yyyy-MM-dd')
   
-  // If we have API time slots, use them
+  const bookedTimes = appointments
+    .filter(apt => apt.appointment_date === dateStr)
+    .map(apt => apt.start_time?.substring(0, 5))
+  
   if (apiTimeSlots.length > 0) {
     const daySlots = apiTimeSlots.filter(slot => slot.day_of_week === day && slot.is_available)
     if (daySlots.length === 0) return []
     
-    return daySlots.map(slot => {
-      // Convert 24hr time to 12hr format
-      const [startH, startM] = (slot.start_time || '00:00:00').split(':').map(Number)
-      const [endH, endM] = (slot.end_time || '00:00:00').split(':').map(Number)
+    const allSlots: SimpleSlot[] = []
+    
+    for (const slot of daySlots) {
+      const duration = slot.appointment_duration || 30
+      const startMinutes = convertToMinutes(slot.start_time)
+      const endMinutes = convertToMinutes(slot.end_time)
       
-      const startHour12 = startH % 12 || 12
-      const endHour12 = endH % 12 || 12
-      const startAmpm = startH >= 12 ? 'PM' : 'AM'
-      const endAmpm = endH >= 12 ? 'PM' : 'AM'
-      
-      return {
-        time: `${startHour12}:${startM.toString().padStart(2, '0')} ${startAmpm}`,
-        endTime: `${endHour12}:${endM.toString().padStart(2, '0')} ${endAmpm}`,
-        duration: slot.appointment_duration || 30,
-        available: true
+      let currentMinutes = startMinutes
+      while (currentMinutes + duration <= endMinutes) {
+        const currentTimeStr = `${Math.floor(currentMinutes / 60).toString().padStart(2, '0')}:${(currentMinutes % 60).toString().padStart(2, '0')}`
+        const time12h = minutesToTime12h(currentMinutes)
+        const endTime12h = minutesToTime12h(currentMinutes + duration)
+        
+        allSlots.push({
+          time: time12h,
+          endTime: endTime12h,
+          duration,
+          available: !bookedTimes.includes(currentTimeStr)
+        })
+        
+        currentMinutes += duration
       }
+    }
+    
+    return allSlots.sort((a, b) => {
+      const timeA = a.time.replace(/ AM| PM/, '')
+      const timeB = b.time.replace(/ AM| PM/, '')
+      return timeA.localeCompare(timeB)
     })
   }
   
-  // Fallback to hardcoded slots
-  if (day === 0) return [] // Sunday - no slots
-  if (day === 6) return TIME_SLOTS_OTHER.filter(s => parseInt(s.time.split(":")[0]) < 12) // Saturday - morning only
+  if (day === 0) return []
+  if (day === 6) return TIME_SLOTS_OTHER.filter(s => parseInt(s.time.split(":")[0]) < 12)
   
-  const dateStr = format(date, "yyyy-MM-dd")
-  if (dateStr === "2026-02-28") return TIME_SLOTS_28_FEB
-  if (dateStr === "2026-03-01") return TIME_SLOTS_1_MAR
+  const dateStr2 = format(date, "yyyy-MM-dd")
+  if (dateStr2 === "2026-02-28") return TIME_SLOTS_28_FEB
+  if (dateStr2 === "2026-03-01") return TIME_SLOTS_1_MAR
   return TIME_SLOTS_OTHER
 }
 
-function getSlotCountForDate(date: Date, apiTimeSlots: any[] = []): number {
-  return getSlotsForDate(date, apiTimeSlots).length
+function getSlotCountForDate(date: Date, apiTimeSlots: any[] = [], appointments: any[] = []): number {
+  return getSlotsForDate(date, apiTimeSlots, appointments).length
 }
 
 /* ── Doctor mock data ─────────────────────────────────────── */
@@ -252,6 +280,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const [loadingDoctor, setLoadingDoctor] = useState(true)
   const [doctorError, setDoctorError] = useState("")
   const [timeSlots, setTimeSlots] = useState<any[]>([])
+  const [appointments, setAppointments] = useState<any[]>([])
 
   // Fetch doctor data from API
   useEffect(() => {
@@ -278,17 +307,19 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     fetchDoctorData()
   }, [doctorId])
 
-  // Fetch time slots from API
+  // Fetch time slots and appointments from API
   useEffect(() => {
     const fetchTimeSlots = async () => {
       if (!doctorId) return
 
       try {
-        const response = await fetch(`/api/doctor/${doctorId}/timeslots`)
+        const today = format(new Date(), 'yyyy-MM-dd')
+        const response = await fetch(`/api/doctor/${doctorId}/public-timeslots?date=${today}`)
         const result = await response.json()
 
-        if (result.success && result.data.timeSlots) {
-          setTimeSlots(result.data.timeSlots)
+        if (result.success) {
+          setTimeSlots(result.data.timeSlots || [])
+          setAppointments(result.data.appointments || [])
         }
       } catch (err) {
         console.error('[Doctor Profile] Error fetching time slots:', err)
@@ -297,6 +328,27 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
     fetchTimeSlots()
   }, [doctorId])
+
+  // Fetch appointments for selected day
+  useEffect(() => {
+    const fetchAppointmentsForDay = async () => {
+      if (!doctorId) return
+
+      try {
+        const dateStr = format(selectedDay, 'yyyy-MM-dd')
+        const response = await fetch(`/api/doctor/${doctorId}/public-timeslots?date=${dateStr}`)
+        const result = await response.json()
+
+        if (result.success && result.data.appointments) {
+          setAppointments(result.data.appointments)
+        }
+      } catch (err) {
+        console.error('[Doctor Profile] Error fetching appointments:', err)
+      }
+    }
+
+    fetchAppointmentsForDay()
+  }, [doctorId, selectedDay])
 
   // Smart auto-scroll function
   const scrollToElementIfNeeded = (element: HTMLElement | null) => {
@@ -359,7 +411,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     return Array.from({ length: 7 }, (_, i) => addDays(today, weekOffset * 7 + i))
   }, [today, weekOffset])
 
-  const availableSlots = useMemo(() => getSlotsForDate(selectedDay, timeSlots), [selectedDay, timeSlots])
+  const availableSlots = useMemo(() => getSlotsForDate(selectedDay, timeSlots, appointments), [selectedDay, timeSlots, appointments])
   const morningSlots = availableSlots.filter(s => s.time.includes("AM"))
   const afternoonSlots = availableSlots.filter(s => s.time.includes("PM"))
 
@@ -392,15 +444,8 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   }
 
   function handleSelectService(service: ServiceOption) {
-    if (service.id === "followup") {
-      setIsFollowUp(true)
-      setSelectedService(null)
-      setSelectedSlot(null)
-      return
-    }
     setSelectedService(service)
     setSelectedSlot(null)
-    setIsFollowUp(service.type === "followup")
     // Auto-scroll to time selection if not visible
     setTimeout(() => scrollToElementIfNeeded(timeSectionRef.current), 100)
   }
@@ -449,13 +494,12 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setSelectedSlot(null)
   }
 
-  // Get services from API data or fallback to hardcoded
+  // Get services from API data
   const apiServices = doctor?.services || []
   
-  // Convert API services to ServiceOption format
-  const realServices: ServiceOption[] = apiServices
-    .filter((s: any) => s.enabled && s.type === 'service')
-    .map((s: any) => ({
+  // Combine real services and follow-ups into one list
+  const allServices = [
+    ...apiServices.filter((s: any) => s.enabled && s.type === 'service').map((s: any) => ({
       id: s.id,
       type: 'service' as const,
       name: s.name,
@@ -463,11 +507,8 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       price: s.price || s.fee || 0,
       enabled: s.enabled,
       description: s.description || '',
-    }))
-
-  const realFollowUps: ServiceOption[] = apiServices
-    .filter((s: any) => s.enabled && s.type === 'followup')
-    .map((s: any) => ({
+    })),
+    ...apiServices.filter((s: any) => s.enabled && s.type === 'followup').map((s: any) => ({
       id: s.id,
       type: 'followup' as const,
       name: s.name,
@@ -476,11 +517,9 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       enabled: s.enabled,
       description: s.description || '',
     }))
+  ]
 
-  // Use real services if available, otherwise fall back to hardcoded
-  const currentServiceList = isFollowUp 
-    ? (realFollowUps.length > 0 ? realFollowUps : FOLLOWUP_SERVICES)
-    : (realServices.length > 0 ? realServices : SERVICES)
+  const currentServiceList = allServices.length > 0 ? allServices : SERVICES
 
   // ── Success screen ──
   if (view === "success") {
@@ -530,24 +569,11 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                 </Button>
               )}
 
-              {/* Follow-up info card */}
-              {isFollowUp && (
-                <Card className="py-3 border-primary/30 bg-primary/5">
-                  <CardContent className="px-5 py-0 flex items-center gap-3">
-                    <RotateCcw className="size-4 text-primary shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium text-foreground">Follow-up Consultation</p>
-                      <p className="text-[11px] text-muted-foreground">Available for patients who consulted within last 10 days. Reduced rates apply.</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Step 1 - Select service */}
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                   <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">1</span>
-                  {isFollowUp ? "Select Follow-up Service" : "Select Service"}
+                  Select Service
                 </h3>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {currentServiceList.filter((s) => s.enabled).map((service) => {
@@ -556,11 +582,9 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                       <Card
                         key={service.id}
                         className={`py-3 cursor-pointer transition-all hover:shadow-sm ${
-                          service.id === "followup" 
-                            ? "border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50"
-                            : isActive
-                              ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
-                              : "hover:border-primary/30"
+                          isActive
+                            ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
+                            : "hover:border-primary/30"
                         }`}
                         onClick={() => handleSelectService(service)}
                         role="radio"
@@ -573,16 +597,16 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                             <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
                               isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                             }`}>
-                              {service.icon}
+                              {service.type === 'followup' ? <RotateCcw className="size-5" /> : service.icon}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-foreground">{service.name}</span>
-                                {service.price >= 0 && (
-                                  <span className="text-sm font-semibold text-primary">₹{service.price}</span>
-                                )}
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground truncate">{service.name}</p>
+                                {service.type === 'followup' && <Badge variant="secondary" className="text-[10px]">Follow-up</Badge>}
                               </div>
-                              <span className="text-[11px] text-muted-foreground">{service.description}</span>
+                              <p className="text-xs text-muted-foreground">
+                                {service.price > 0 ? `₹${service.price}` : 'As per previous'}
+                              </p>
                             </div>
                           </div>
                         </CardContent>
@@ -618,7 +642,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                     {days.map((day) => {
                       const isSelected = isSameDay(day, selectedDay)
                       const isToday = isSameDay(day, today)
-                      const dayAvailable = getSlotCountForDate(day, timeSlots)
+                      const dayAvailable = getSlotCountForDate(day, timeSlots, appointments)
                       return (
                         <Button
                           key={day.toISOString()}

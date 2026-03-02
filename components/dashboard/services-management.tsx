@@ -1,5 +1,7 @@
 "use client"
 
+import { authFetch } from "@/lib/utils/api"
+
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -73,7 +75,6 @@ export function ServicesManagement() {
         setError(result.error || 'Failed to load services')
       }
     } catch (err) {
-      console.error('[Services Management] Error:', err)
       setError('Failed to load services')
     } finally {
       setLoading(false)
@@ -85,13 +86,11 @@ export function ServicesManagement() {
   }, [doctorId])
 
   const toggleService = async (serviceId: string, currentEnabled: boolean) => {
-    console.log('[Services Management] Toggling service:', serviceId, 'currentEnabled:', currentEnabled, 'doctorId:', doctorId)
     setSaving(serviceId)
     
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/services`, {
+      const response = await authFetch(`/api/doctor/${doctorId}/services`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service_id: serviceId,
           enabled: !currentEnabled,
@@ -111,7 +110,6 @@ export function ServicesManagement() {
         setError(result.error || 'Failed to update service')
       }
     } catch (err) {
-      console.error('[Services Management] Error toggling:', err)
       setError('Failed to update service')
     } finally {
       setSaving(null)
@@ -120,13 +118,11 @@ export function ServicesManagement() {
 
   const updatePrice = async (serviceId: string, currentFee: number, newFee: string) => {
     const fee = parseInt(newFee) || currentFee
-    console.log('[Services Management] Updating price:', serviceId, 'newFee:', fee, 'doctorId:', doctorId)
     setSaving(serviceId)
     
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/services`, {
+      const response = await authFetch(`/api/doctor/${doctorId}/services`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service_id: serviceId,
           fee: fee,
@@ -146,7 +142,6 @@ export function ServicesManagement() {
         setError(result.error || 'Failed to update fee')
       }
     } catch (err) {
-      console.error('[Services Management] Error updating price:', err)
       setError('Failed to update fee')
     } finally {
       setSaving(null)
@@ -166,7 +161,6 @@ export function ServicesManagement() {
         setError(result.error || 'Failed to load services')
       }
     } catch (err) {
-      console.error('[Services Management] Error loading services:', err)
       setError('Failed to load services')
     } finally {
       setLoadingAvailable(false)
@@ -176,9 +170,8 @@ export function ServicesManagement() {
   const addService = async (serviceId: string, defaultPrice: number) => {
     setSaving(serviceId)
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/services`, {
+      const response = await authFetch(`/api/doctor/${doctorId}/services`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           service_id: serviceId,
           fee: defaultPrice,
@@ -195,7 +188,6 @@ export function ServicesManagement() {
         setError(result.error || 'Failed to add service')
       }
     } catch (err) {
-      console.error('[Services Management] Error adding service:', err)
       setError('Failed to add service')
     } finally {
       setSaving(null)

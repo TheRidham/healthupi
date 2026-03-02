@@ -76,8 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Step 2: Check patient session (for phone-based auth)
         const patientSession = getPatientSession()
 
-        console.log('[Auth Context] Patient session from localStorage:', patientSession)
-
         if (patientSession?.userId && patientSession?.role === 'patient') {
           // Load patient profile first
           const profile = await loadPatientProfile(patientSession.userId)
@@ -91,8 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date(),
           }
           setUser(userData)
-
-          console.log('[Auth Context] Set patient user:', userData)
 
           setIsLoading(false)
           return
@@ -143,7 +139,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = (userData: AuthUser) => {
-    console.log('[Auth Context] Setting user:', userData)
     setUser(userData)
 
     // Save to localStorage for persistence
@@ -151,7 +146,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // If patient, load profile
     if (userData.role === 'patient') {
-      console.log('[Auth Context] Loading patient profile for userId:', userData.id)
       loadPatientProfile(userData.id)
     }
   }

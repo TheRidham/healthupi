@@ -173,12 +173,13 @@ export function BookingModal({
 
       const bookingData = {
         doctor_id: doctorId,
-        patient_id: user?.id || "",
+        patient_id: user?.id || patientProfile?.user_id || "",
         service_id: serviceUuid,
         appointment_date: format(date, 'yyyy-MM-dd'),
         start_time: startTime,
         end_time: endTime,
         notes: issue,
+        mediaFiles: uploadedFiles,
         paymentAmount: service.price,
         paymentMethod: "upi",
       }

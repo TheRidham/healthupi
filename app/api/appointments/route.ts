@@ -1,40 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { NextRequest } from 'next/server'
+import { supabaseAdmin } from '@/lib/server/supabase-admin'
+import { successResponse, errorResponse } from '@/lib/server/response'
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const patientId = searchParams.get('patient_id')
     const status = searchParams.get('status')
-
-    console.log('[API Appointments] ===== API CALLED =====')
-    console.log('[API Appointments] Patient ID:', patientId)
-    console.log('[API Appointments] Status:', status || 'all')
-    console.log('[API Appointments] Env vars:', {
-      urlSet: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      serviceKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
-    })
+    const patientId = searchParams.get('patient_id')
 
     if (!patientId) {
-      return NextResponse.json(
-        { success: false, error: 'patient_id is required' },
-        { status: 400 }
-      )
+      return errorResponse('patient_id query parameter required', 400)
     }
 
-    console.log('[API Appointments] Fetching appointments for patient:', patientId, 'status:', status || 'all')
-
-    let query = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('appointments')
       .select(`
         *,
@@ -43,43 +21,35 @@ export async function GET(request: NextRequest) {
       .eq('patient_id', patientId)
       .order('appointment_date', { ascending: true })
 
-    if (status) {
-      query = query.eq('status', status)
-    }
-
-    const { data, error } = await query
-
     if (error) {
-      console.error('[API Appointments] Error:', error)
-      console.error('[API Appointments] Error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      })
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      )
+      return errorResponse(error.message, 500)
     }
 
-    console.log('[API Appointments] Found appointments:', data?.length || 0)
+    // Fetch all services to match by service_id
+    const { data: servicesData } = await supabaseAdmin
+      .from('services')
+      .select('id, name, icon, type')
 
-    // Convert appointment_date strings to Date
-    const appointments = (data || []).map(apt => ({
-      ...apt,
-      appointment_date: apt.appointment_date ? new Date(apt.appointment_date) : null,
-    }))
+    const serviceMap = new Map((servicesData || []).map(s => [s.id, s]))
 
-    return NextResponse.json({
-      success: true,
-      data: appointments,
+    const appointments = (data || []).map(apt => {
+      const service = serviceMap.get(apt.service_id)
+      return {
+        ...apt,
+        service_name: service?.name || 'Consultation',
+        service_icon: service?.icon || 'Video',
+        doctorName: apt.doctor ? `Dr. ${apt.doctor.first_name} ${apt.doctor.last_name}` : 'Doctor',
+        appointment_date: apt.appointment_date ? new Date(apt.appointment_date) : null,
+      }
     })
-  } catch (error: any) {
-    console.error('[API Appointments] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+
+    if (status) {
+      const filtered = appointments.filter(apt => apt.status === status)
+      return successResponse(filtered)
+    }
+
+    return successResponse(appointments)
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { authFetch } from "@/lib/utils/api"
 import { fetchDoctorProfile } from "@/lib/type"
 
 interface DoctorInfo {
@@ -55,42 +57,39 @@ interface DoctorInfo {
   consultationFee: string
 }
 
-const INITIAL_DATA: DoctorInfo = {
-  name: "Dr. Rahul Sharma",
-  title: "Senior Consultant",
-  specialization: "Internal Medicine",
-  subSpecialization: "Cardiology",
-  experience: "15 years",
-  qualifications: ["MD", "MBBS", "FACC", "Board Certified"],
-  registrationNumber: "MCI-2011-48293",
-  clinicName: "Sharma Cardiology Center",
-  hospitalAffiliation: "Apollo Hospital",
-  address: "1234 Medical Plaza, Suite 200",
-  city: "New Delhi",
-  state: "Delhi",
-  zipCode: "110001",
-  phone: "+91 98765 43210",
-  email: "dr.rahul@healthupi.com",
-  website: "www.sharmaCardiology.com",
-  bio: "Experienced cardiologist with over 15 years of practice in interventional cardiology and preventive heart care. Passionate about leveraging telemedicine to improve patient access to quality healthcare. Published over 30 research papers in leading medical journals.",
-  languages: ["English", "Hindi", "Tamil"],
-  consultationFee: "500",
+const EMPTY_DATA: DoctorInfo = {
+  name: "",
+  title: "",
+  specialization: "",
+  subSpecialization: "",
+  experience: "",
+  qualifications: [],
+  registrationNumber: "",
+  clinicName: "",
+  hospitalAffiliation: "",
+  address: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  phone: "",
+  email: "",
+  website: "",
+  bio: "",
+  languages: [],
+  consultationFee: "0",
 }
-
-const GALLERY_IMAGES = [
-  { src: "/images/clinic-1.jpg", alt: "Examination room" },
-  { src: "/images/clinic-2.jpg", alt: "Reception area" },
-  { src: "/images/clinic-3.jpg", alt: "Consultation office" },
-]
 
 export function PersonalDetails() {
   const { user } = useAuth()
+  const pathname = usePathname()
+  const doctorId = pathname?.split('/')[2] || user?.id || ''
   const [isEditing, setIsEditing] = useState(false)
-  const [info, setInfo] = useState<DoctorInfo>(INITIAL_DATA)
-  const [editInfo, setEditInfo] = useState<DoctorInfo>(INITIAL_DATA)
+  const [info, setInfo] = useState<DoctorInfo>(EMPTY_DATA)
+  const [editInfo, setEditInfo] = useState<DoctorInfo>(EMPTY_DATA)
   const [isLoading, setIsLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [galleryImages, setGalleryImages] = useState<Array<{ src: string; alt: string }>>(GALLERY_IMAGES)
+  const [galleryImages, setGalleryImages] = useState<Array<{ src: string; alt: string }>>([])
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   // Fetch doctor profile from Supabase
@@ -165,9 +164,45 @@ export function PersonalDetails() {
     setIsEditing(false)
   }
 
-  const saveChanges = () => {
-    setInfo({ ...editInfo })
-    setIsEditing(false)
+  const saveChanges = async () => {
+    setSaving(true)
+    try {
+      const response = await authFetch(`/api/doctor/${doctorId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: editInfo.title,
+          first_name: editInfo.name.split(' ').slice(1).join(' ') || editInfo.name,
+          designation: editInfo.title,
+          specialization: editInfo.specialization,
+          sub_specialization: editInfo.subSpecialization,
+          clinic_name: editInfo.clinicName,
+          hospital: editInfo.hospitalAffiliation,
+          address: editInfo.address,
+          city: editInfo.city,
+          state: editInfo.state,
+          zip: editInfo.zipCode,
+          phone: editInfo.phone,
+          email: editInfo.email,
+          website: editInfo.website,
+          about: editInfo.bio,
+          languages: editInfo.languages,
+          base_fee: parseInt(editInfo.consultationFee) || 0,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setInfo({ ...editInfo })
+        setIsEditing(false)
+      } else {
+        setError(result.error || 'Failed to save profile')
+      }
+    } catch (err) {
+      setError('Failed to save profile')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const updateField = (field: keyof DoctorInfo, value: string) => {

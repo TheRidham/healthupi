@@ -43,7 +43,6 @@ export function storeOtp(phone: string, otp?: string): string {
 export function verifyOtp(phone: string, otp: string): { valid: boolean; message: string } {
   // Development mode: Accept any 6-digit OTP
   if (process.env.NODE_ENV === 'development') {
-    // Clean OTP to digits only
     const cleanOtp = otp.replace(/\D/g, '')
 
     if (cleanOtp.length === 6) {

@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { authFetch } from "@/lib/utils/api"
 import {
   Video,
   MessageSquare,
@@ -22,6 +23,9 @@ interface AppointmentData {
   patient_id: string
   patient_name: string
   patient_photo: string
+  service_id: string
+  service_name: string
+  service_icon: string
   service_type: string
   appointment_date: string
   start_time: string
@@ -33,6 +37,7 @@ interface AppointmentData {
 
 export function CallsSection() {
   const pathname = usePathname()
+  const router = useRouter()
   const doctorId = pathname?.split('/')[2] || ''
   
   const [todayAppointments, setTodayAppointments] = useState<AppointmentData[]>([])
@@ -44,15 +49,17 @@ export function CallsSection() {
       if (!doctorId) return
       
       try {
-        const response = await fetch(`/api/doctor/${doctorId}/appointments`)
+        const response = await authFetch(`/api/doctor/${doctorId}/appointments`)
         const result = await response.json()
         
         if (result.success && result.data) {
           setTodayAppointments(result.data.today || [])
           setUpcomingAppointments(result.data.upcoming || [])
+        } else {
+          console.error('[CallsSection] API error:', result.error)
         }
       } catch (err) {
-        console.error('[CallsSection] Error:', err)
+        console.error('[CallsSection] Fetch error:', err)
       } finally {
         setLoading(false)
       }
@@ -70,24 +77,21 @@ export function CallsSection() {
     return `${h12}:${m} ${ampm}`
   }
 
-  const getServiceIcon = (serviceType: string) => {
-    if (serviceType?.includes('video') || serviceType?.includes('Video')) {
-      return <Video className="size-4" />
-    }
+  const getServiceIcon = (service: AppointmentData) => {
+    const icon = service.service_icon?.toLowerCase() || ''
+    if (icon.includes('video')) return <Video className="size-4" />
+    if (icon.includes('home')) return <Siren className="size-4" />
+    if (icon.includes('follow')) return <RotateCcw className="size-4" />
+    if (icon.includes('siren') || icon.includes('emergency')) return <Siren className="size-4" />
     return <MessageSquare className="size-4" />
   }
 
-  const getServiceLabel = (serviceType: string) => {
-    if (serviceType?.includes('video') || serviceType?.includes('Video')) {
-      return 'Video Call'
-    }
-    if (serviceType?.includes('followup') || serviceType?.includes('Follow')) {
-      return 'Follow-up'
-    }
-    if (serviceType?.includes('home') || serviceType?.includes('Home')) {
-      return 'Home Visit'
-    }
-    return 'Chat'
+  const getServiceLabel = (service: AppointmentData) => {
+    return service.service_name || 'Consultation'
+  }
+
+  const handleStartCall = (apt: AppointmentData) => {
+    router.push(`/chat/${apt.id}`)
   }
 
   if (loading) {
@@ -128,8 +132,8 @@ export function CallsSection() {
                     <div>
                       <p className="font-medium text-sm text-foreground">{apt.patient_name}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {getServiceIcon(apt.service_type)}
-                        <span>{getServiceLabel(apt.service_type)}</span>
+                        {getServiceIcon(apt)}
+                        <span>{getServiceLabel(apt)}</span>
                         <span>•</span>
                         <Clock className="size-3" />
                         <span>{formatTime(apt.start_time)}</span>
@@ -140,7 +144,7 @@ export function CallsSection() {
                     <Badge variant={apt.status === 'confirmed' ? 'default' : 'secondary'}>
                       {apt.status}
                     </Badge>
-                    <Button size="sm" variant="outline" className="h-8">
+                    <Button size="sm" variant="outline" className="h-8" onClick={() => handleStartCall(apt)}>
                       Start
                       <ArrowRight className="size-3 ml-1" />
                     </Button>
@@ -188,7 +192,7 @@ export function CallsSection() {
                       </div>
                     </div>
                   </div>
-                  <Badge variant="outline">{getServiceLabel(apt.service_type)}</Badge>
+                  <Badge variant="outline">{getServiceLabel(apt)}</Badge>
                 </CardContent>
               </Card>
             ))}

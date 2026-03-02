@@ -1,14 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { NextRequest } from 'next/server'
+import { supabaseAdmin } from '@/lib/server/supabase-admin'
+import { findDoctor, getDoctorByUserId } from '@/lib/server/doctor'
+import { requireDoctor, handleAuthError } from '@/lib/server/auth'
+import { successResponse, errorResponse } from '@/lib/server/response'
 
 export async function GET(
   request: NextRequest,
@@ -16,29 +10,23 @@ export async function GET(
 ) {
   try {
     const { id: doctorIdOrSlug } = await context.params
-    
-    console.log('[API Doctor] Fetching doctor:', { doctorIdOrSlug })
-
-    const isUuid = doctorIdOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(doctorIdOrSlug)
 
     let doctor: any = null
 
     if (isUuid) {
-      // Direct UUID lookup
       const result = await supabaseAdmin
         .from('doctor_profiles')
         .select('*')
         .eq('user_id', doctorIdOrSlug)
         .single()
-      
       doctor = result.data
     } else {
-      // Try first_name + last_name from slug
       const parts = doctorIdOrSlug.split('-')
       if (parts.length >= 2) {
         const firstName = parts[0]
         const lastName = parts.slice(1).join(' ')
-        
+
         const result = await supabaseAdmin
           .from('doctor_profiles')
           .select('*')
@@ -46,46 +34,39 @@ export async function GET(
           .ilike('last_name', lastName)
           .limit(1)
           .single()
-        
         doctor = result.data
       }
     }
 
     if (!doctor) {
-      return NextResponse.json(
-        { success: false, error: 'Doctor not found' },
-        { status: 404 }
-      )
+      return errorResponse('Doctor not found', 404)
     }
 
-    // Fetch doctor services
-    const { data: services, error: servicesError } = await supabaseAdmin
+    const { data: doctorServices, error: servicesError } = await supabaseAdmin
       .from('doctor_services')
-      .select(`
-        fee,
-        enabled,
-        service_id,
-        services!inner(id, name, type, description, price, duration_minutes, icon)
-      `)
+      .select('fee, enabled, service_id')
       .eq('doctor_id', doctor.user_id)
       .eq('enabled', true)
 
-    if (servicesError) {
-      console.error('[API Doctor] Error fetching services:', servicesError)
-    }
+    const { data: allServices } = await supabaseAdmin
+      .from('services')
+      .select('id, name, type, description, price, duration_minutes, icon')
 
-    // Format services
-    const formattedServices = (services || []).map((ds: any) => ({
-      id: ds.service_id,
-      type: ds.services?.type || 'service',
-      name: ds.services?.name || '',
-      icon: ds.services?.icon || '',
-      price: ds.fee || ds.services?.price || 0,
-      enabled: ds.enabled,
-      description: ds.services?.description || '',
-    }))
+    const serviceMap = new Map((allServices || []).map(s => [s.id, s]))
 
-    // Format doctor for frontend
+    const formattedServices = (doctorServices || []).map((ds: any) => {
+      const service = serviceMap.get(ds.service_id)
+      return {
+        id: ds.service_id,
+        type: service?.type || 'service',
+        name: service?.name || '',
+        icon: service?.icon || '',
+        price: ds.fee || service?.price || 0,
+        enabled: ds.enabled,
+        description: service?.description || '',
+      }
+    })
+
     const formattedDoctor = {
       id: doctorIdOrSlug,
       user_id: doctor.user_id,
@@ -121,17 +102,62 @@ export async function GET(
       services: formattedServices,
     }
 
-    console.log('[API Doctor] Found doctor:', formattedDoctor.name)
+    return successResponse(formattedDoctor)
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
+  }
+}
 
-    return NextResponse.json({
-      success: true,
-      data: formattedDoctor,
-    })
-  } catch (error: any) {
-    console.error('[API Doctor] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authUser = await requireDoctor(request)
+    const { id: doctorIdOrSlug } = await context.params
+    const body = await request.json()
+
+    const doctor = await findDoctor(doctorIdOrSlug)
+    if (!doctor) {
+      return errorResponse('Doctor not found', 404)
+    }
+
+    if (doctor.user_id !== authUser.id) {
+      return errorResponse('Cannot modify another doctor\'s profile', 403)
+    }
+
+    const allowedFields = [
+      'title', 'first_name', 'last_name', 'designation', 'about',
+      'specialization', 'sub_specialization', 'experience_years',
+      'qualifications', 'registration_no', 'clinic_name', 'hospital',
+      'address', 'city', 'state', 'zip', 'phone', 'email', 'website',
+      'languages', 'base_fee', 'availability', 'photo_url', 'clinic_photo_urls'
+    ]
+
+    const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field]
+      }
+    }
+
+    const { data: updatedDoctor, error } = await supabaseAdmin
+      .from('doctor_profiles')
+      .update(updateData)
+      .eq('user_id', doctor.user_id)
+      .select()
+      .single()
+
+    if (error) {
+      return errorResponse(error.message, 500)
+    }
+
+    return successResponse(updatedDoctor)
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AuthError') {
+      return handleAuthError(error)
+    }
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }

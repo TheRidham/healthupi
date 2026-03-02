@@ -31,12 +31,14 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { getPatientBookings, getUpcomingBookings, getPastBookings } from "@/services/booking.service"
 import { calculateAge } from "@/lib/supabase/patient"
 
 export default function ProfilePage() {
   const { user, patientProfile, isLoading, refreshProfile } = useAuth()
+  const router = useRouter()
 
   const [appointments, setAppointments] = useState<any[]>([])
   const [upcoming, setUpcoming] = useState<any[]>([])
@@ -202,7 +204,9 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {upcoming.slice(0, 2).map((apt) => (
+                    {upcoming.slice(0, 2).map((apt) => {
+                      const isToday = apt.appointment_date && format(new Date(apt.appointment_date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                      return (
                       <div key={apt.id} className="flex items-start gap-4 p-4 rounded-lg bg-muted/50">
                       <Avatar className="size-12">
                       <AvatarImage src="/images/doctor-avatar.jpg" alt={apt.doctorName} />
@@ -212,7 +216,7 @@ export default function ProfilePage() {
                           <div className="flex items-start justify-between">
                             <div>
                               <h3 className="text-sm font-semibold text-foreground">{apt.doctorName || 'Doctor'}</h3>
-                              <p className="text-xs text-muted-foreground">{apt.specialization || 'Consultation'}</p>
+                              <p className="text-xs text-muted-foreground">{apt.service_name || 'Consultation'}</p>
                             </div>
                             <Badge variant={apt.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
                               {apt.status}
@@ -229,8 +233,14 @@ export default function ProfilePage() {
                             </div>
                           </div>
                         </div>
+                        {isToday && apt.status !== 'cancelled' && apt.status !== 'completed' && (
+                          <Button size="sm" className="h-8" onClick={() => router.push(`/chat/${apt.id}`)}>
+                            Join
+                          </Button>
+                        )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                   {upcoming.length > 2 && (
                     <div className="text-center pt-2">
@@ -270,22 +280,22 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {appointments.map((apt) => (
+                    {appointments.map((apt) => (
                           <div key={apt.id} className="flex items-start gap-4 p-4 rounded-lg border border-border hover:border-primary/30 transition-colors">
-                  <Avatar className="size-12">
-                      <AvatarImage src="/images/doctor-avatar.jpg" alt={apt.doctorName} />
-                      <AvatarFallback>{apt.doctorName?.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
-                    </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h3 className="text-sm font-semibold text-foreground">{apt.doctorName || 'Doctor'}</h3>
-                                  <p className="text-xs text-muted-foreground">Video Consultation</p>
-                                </div>
-                                <Badge variant={apt.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
-                                  {apt.status}
-                                </Badge>
+                          <Avatar className="size-12">
+                          <AvatarImage src="/images/doctor-avatar.jpg" alt={apt.doctorName} />
+                          <AvatarFallback>{apt.doctorName?.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
+                        </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="text-sm font-semibold text-foreground">{apt.doctorName || 'Doctor'}</h3>
+                                <p className="text-xs text-muted-foreground">{apt.service_name || 'Consultation'}</p>
                               </div>
+                              <Badge variant={apt.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
+                                {apt.status}
+                              </Badge>
+                            </div>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="size-3" />

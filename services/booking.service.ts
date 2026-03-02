@@ -7,12 +7,37 @@ import {
   cancelAppointment as cancelAppointmentDB,
   isTimeSlotAvailable,
 } from '@/lib/supabase/appointment'
-import { getDoctorUuid, fetchDoctorUuid } from '@/lib/utils/doctor'
+import { fetchDoctorUuid } from '@/lib/utils/doctor'
 import type { Appointment, AppointmentInput, Payment } from '@/types'
 
 // ============================================================================
 // BOOKING SERVICE - HIGH-LEVEL BOOKING OPERATIONS
 // ============================================================================
+
+async function uploadMediaFiles(files: File[], patientId: string): Promise<string[]> {
+  const uploadedUrls: string[] = []
+  
+  for (const file of files) {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${patientId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    
+    const { data, error } = await supabase.storage
+      .from('patient-photos')
+      .upload(fileName, file)
+    
+    if (!error && data) {
+      const { data: urlData } = supabase.storage
+        .from('patient-photos')
+        .getPublicUrl(fileName)
+      
+      if (urlData?.publicUrl) {
+        uploadedUrls.push(urlData.publicUrl)
+      }
+    }
+  }
+  
+  return uploadedUrls
+}
 
 /**
  * Create a new booking (appointment + payment)
@@ -21,6 +46,7 @@ export async function createBooking(
   bookingData: AppointmentInput & {
     paymentAmount: number
     paymentMethod?: string
+    mediaFiles?: File[]
   }
 ): Promise<{
   success: boolean
@@ -29,11 +55,14 @@ export async function createBooking(
   error?: string
 }> {
   try {
-    console.log('[Booking Service] Creating booking with data:', bookingData)
+    // Upload media files if any
+    let mediaUrls: string[] = []
+    if (bookingData.mediaFiles && bookingData.mediaFiles.length > 0) {
+      mediaUrls = await uploadMediaFiles(bookingData.mediaFiles, bookingData.patient_id)
+    }
 
     // Convert doctor_id (slug) to actual UUID
     const doctorUuid = await fetchDoctorUuid(bookingData.doctor_id)
-    console.log('[Booking Service] Doctor UUID:', doctorUuid)
 
     if (!doctorUuid) {
       return {
@@ -46,6 +75,7 @@ export async function createBooking(
     const bookingDataWithUuid = {
       ...bookingData,
       doctor_id: doctorUuid,
+      media_urls: mediaUrls,
     }
 
     // Step 1: Check if time slot is available
@@ -56,8 +86,6 @@ export async function createBooking(
       bookingDataWithUuid.end_time
     )
 
-    console.log('[Booking Service] Time slot available:', isAvailable)
-
     if (!isAvailable) {
       return {
         success: false,
@@ -65,26 +93,21 @@ export async function createBooking(
       }
     }
 
-    // Step 2: Call API route to create appointment and payment (server-side with service role key)
+    // Step 2: Call API route to create appointment and payment
     const response = await fetch('/api/bookings', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bookingDataWithUuid),
     })
 
     const result = await response.json()
 
     if (!response.ok || !result.success) {
-      console.error('[Booking Service] API error:', result.error)
       return {
         success: false,
         error: result.error || 'Failed to create booking. Please try again.',
       }
     }
-
-    console.log('[Booking Service] Booking created via API:', result.data)
 
     return {
       success: true,
@@ -92,7 +115,6 @@ export async function createBooking(
       payment: result.data.payment,
     }
   } catch (error: any) {
-    console.error('Error creating booking:', error)
     return { success: false, error: error?.message || 'Booking failed' }
   }
 }
@@ -113,20 +135,16 @@ export async function getPatientBookings(
 ): Promise<Appointment[]> {
   try {
     const url = `/api/appointments?patient_id=${patientId}${status ? `&status=${status}` : ''}`
-    console.log('[Booking Service] Fetching appointments from:', url)
 
     const response = await fetch(url)
 
-    console.log('[Booking Service] Response status:', response.status, response.statusText)
-
     if (!response.ok) {
-      const error = await response.json()
-      console.error('[Booking Service] API error:', error)
+      const errorData = await response.json()
+      console.error('[Booking Service] API error:', response.status, errorData)
       return []
     }
 
     const result = await response.json()
-    console.log('[Booking Service] Result:', { success: result.success, count: result.data?.length || 0 })
     return result.data || []
   } catch (error: any) {
     console.error('[Booking Service] Error fetching appointments:', error)

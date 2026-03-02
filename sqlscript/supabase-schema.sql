@@ -179,6 +179,20 @@ CREATE TABLE public.notifications (
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  razorpay_order_id text NOT NULL UNIQUE,
+  razorpay_payment_id text UNIQUE,
+  amount integer NOT NULL,
+  currency text DEFAULT 'INR'::text,
+  status text DEFAULT 'created'::text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.patient_profiles (
   id uuid DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -313,4 +327,13 @@ CREATE TABLE public.video_calls (
   CONSTRAINT video_calls_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.conversations(id),
   CONSTRAINT video_calls_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.doctor_profiles(user_id),
   CONSTRAINT video_calls_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patient_profiles(user_id)
+);
+CREATE TABLE public.video_rooms (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  appointment_id uuid NOT NULL UNIQUE,
+  room_id text NOT NULL,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  expires_at timestamp with time zone DEFAULT (CURRENT_TIMESTAMP + '04:00:00'::interval),
+  CONSTRAINT video_rooms_pkey PRIMARY KEY (id),
+  CONSTRAINT video_rooms_appointment_id_fkey FOREIGN KEY (appointment_id) REFERENCES public.appointments(id)
 );

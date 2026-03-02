@@ -38,8 +38,3 @@ export const config = {
     maxBioLength: 1000,
   },
 }
-
-// Log to verify service role key is loaded
-if (typeof window !== 'undefined') {
-  console.log('[Config] Supabase service role key available:', !!config.supabase.supabaseServiceRoleKey)
-}

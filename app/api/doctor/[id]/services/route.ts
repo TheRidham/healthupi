@@ -1,46 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest } from 'next/server'
+import { supabaseAdmin } from '@/lib/server/supabase-admin'
+import { findDoctor } from '@/lib/server/doctor'
+import { requireDoctor, handleAuthError } from '@/lib/server/auth'
+import { successResponse, errorResponse } from '@/lib/server/response'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+function validateServiceInput(body: any): { valid: boolean; error?: string } {
+  const { service_id, enabled, fee } = body
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-async function findDoctor(doctorIdOrSlug: string): Promise<any> {
-  const isUuid = doctorIdOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-  
-  if (isUuid) {
-    console.log('[findDoctor] Looking up by UUID:', doctorIdOrSlug)
-    const result = await supabaseAdmin
-      .from('doctor_profiles')
-      .select('user_id, first_name, last_name')
-      .eq('user_id', doctorIdOrSlug)
-      .single()
-    console.log('[findDoctor] UUID result:', result.data, result.error)
-    return result.data
+  if (!service_id) {
+    return { valid: false, error: 'service_id is required' }
   }
-  
-  console.log('[findDoctor] Looking up by slug:', doctorIdOrSlug)
-  const parts = doctorIdOrSlug.split('-')
-  if (parts.length >= 2) {
-    const firstName = parts[0]
-    const lastName = parts.slice(1).join(' ')
-    console.log('[findDoctor] Parsed name:', firstName, lastName)
-    
-    const result = await supabaseAdmin
-      .from('doctor_profiles')
-      .select('user_id, first_name, last_name')
-      .ilike('first_name', firstName)
-      .ilike('last_name', lastName)
-      .limit(1)
-      .single()
-    console.log('[findDoctor] Name result:', result.data, result.error)
-    return result.data
+
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    return { valid: false, error: 'enabled must be a boolean' }
   }
-  return null
+
+  if (fee !== undefined && (typeof fee !== 'number' || fee < 0)) {
+    return { valid: false, error: 'fee must be a positive number' }
+  }
+
+  return { valid: true }
 }
 
-// GET: Fetch doctor's services
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -49,53 +30,12 @@ export async function GET(
     const { id: doctorId } = await context.params
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
-    
-    console.log('[API Doctor Services] Fetching services for doctor:', doctorId, 'action:', action)
 
-    const isUuid = doctorId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-    
-    let doctor: any = null
-
-    if (isUuid) {
-      console.log('[API Doctor Services] Looking up by UUID:', doctorId)
-      const result = await supabaseAdmin
-        .from('doctor_profiles')
-        .select('user_id, first_name, last_name')
-        .eq('user_id', doctorId)
-        .single()
-      console.log('[API Doctor Services] UUID lookup result:', result.data, result.error)
-      doctor = result.data
-    } else {
-      // Try first_name + last_name
-      const parts = doctorId.split('-')
-      if (parts.length >= 2) {
-        const firstName = parts[0]
-        const lastName = parts.slice(1).join(' ')
-        console.log('[API Doctor Services] Looking up by name:', firstName, lastName)
-        
-        const result = await supabaseAdmin
-          .from('doctor_profiles')
-          .select('user_id, first_name, last_name')
-          .ilike('first_name', firstName)
-          .ilike('last_name', lastName)
-          .limit(1)
-          .single()
-        console.log('[API Doctor Services] Name lookup result:', result.data, result.error)
-        doctor = result.data
-      }
-    }
-
+    const doctor = await findDoctor(doctorId)
     if (!doctor) {
-      console.error('[API Doctor Services] Error finding doctor - doctor is null')
-      return NextResponse.json(
-        { success: false, error: 'Doctor not found' },
-        { status: 404 }
-      )
+      return errorResponse('Doctor not found', 404)
     }
 
-    console.log('[API Doctor Services] Found doctor:', doctor.user_id)
-
-    // Get all services for this doctor
     const { data: doctorServices, error: servicesError } = await supabaseAdmin
       .from('doctor_services')
       .select(`
@@ -115,42 +55,28 @@ export async function GET(
       `)
       .eq('doctor_id', doctor.user_id)
 
-    console.log('[API Doctor Services] Doctor services:', doctorServices, servicesError)
-
     if (servicesError) {
-      console.error('[API Doctor Services] Error fetching services:', servicesError)
-      return NextResponse.json(
-        { success: false, error: servicesError.message },
-        { status: 500 }
-      )
+      return errorResponse(servicesError.message, 500)
     }
 
-    // If action=available, return services not yet added by this doctor
     if (action === 'available') {
-      // Get existing service IDs for this doctor
       const existingServiceIds = (doctorServices || []).map((ds: any) => ds.services.id)
-      
-      // Get all services not in the doctor's list
-      const { data: allServices, error: servicesError } = await supabaseAdmin
+
+      if (existingServiceIds.length === 0) {
+        const { data: allServices } = await supabaseAdmin
+          .from('services')
+          .select('*')
+        return successResponse(allServices || [])
+      }
+
+      const { data: allServices } = await supabaseAdmin
         .from('services')
         .select('*')
         .not('id', 'in', `(${existingServiceIds.map((id: string) => `"${id}"`).join(',')})`)
 
-      if (servicesError) {
-        console.error('[API Doctor Services] Error fetching available services:', servicesError)
-        return NextResponse.json(
-          { success: false, error: servicesError.message },
-          { status: 500 }
-        )
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: allServices || [],
-      })
+      return successResponse(allServices || [])
     }
 
-    // Format the response
     const formattedServices = (doctorServices || []).map((ds: any) => ({
       id: ds.services.id,
       doctor_id: doctor.user_id,
@@ -166,58 +92,51 @@ export async function GET(
       updated_at: ds.updated_at,
     }))
 
-    // Separate regular services and follow-ups
     const regularServices = formattedServices.filter((s: any) => s.type === 'service')
     const followUpServices = formattedServices.filter((s: any) => s.type === 'followup')
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        doctor: {
-          user_id: doctor.user_id,
-          slug: doctor.slug,
-          name: `${doctor.first_name} ${doctor.last_name}`,
-        },
-        services: regularServices,
-        followups: followUpServices,
-        all: formattedServices,
+    return successResponse({
+      doctor: {
+        user_id: doctor.user_id,
+        name: `${doctor.first_name} ${doctor.last_name}`,
       },
+      services: regularServices,
+      followups: followUpServices,
+      all: formattedServices,
     })
-  } catch (error: any) {
-    console.error('[API Doctor Services] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
 
-// PUT: Update doctor service (enable/disable, set fee)
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authUser = await requireDoctor(request)
     const { id: doctorId } = await context.params
     const body = await request.json()
-    const { service_id, enabled, fee } = body
 
-    console.log('[API Doctor Services] Updating service:', { doctorId, service_id, enabled, fee })
-
-    const doctor = await findDoctor(doctorId)
-    console.log('[API Doctor Services] Found doctor:', doctor)
-    
-    if (!doctor) {
-      return NextResponse.json({ success: false, error: 'Doctor not found' }, { status: 404 })
+    const validation = validateServiceInput(body)
+    if (!validation.valid) {
+      return errorResponse(validation.error!, 400)
     }
 
-    // Update the service
+    const { service_id, enabled, fee } = body
+    const doctor = await findDoctor(doctorId)
+
+    if (!doctor) {
+      return errorResponse('Doctor not found', 404)
+    }
+
+    if (doctor.user_id !== authUser.id) {
+      return errorResponse('Cannot modify another doctor\'s data', 403)
+    }
+
     const updateData: any = { updated_at: new Date().toISOString() }
     if (enabled !== undefined) updateData.enabled = enabled
     if (fee !== undefined) updateData.fee = fee
-
-    console.log('[API Doctor Services] Update data:', updateData)
-    console.log('[API Doctor Services] Matching doctor_id:', doctor.user_id, 'service_id:', service_id)
 
     const { data: updatedService, error: updateError } = await supabaseAdmin
       .from('doctor_services')
@@ -225,53 +144,46 @@ export async function PUT(
       .eq('doctor_id', doctor.user_id)
       .eq('service_id', service_id)
       .select()
+      .single()
 
-    console.log('[API Doctor Services] Update result:', { updatedService, updateError })
-
-    if (updateError || !updatedService || updatedService.length === 0) {
-      console.error('[API Doctor Services] Error updating service:', updateError)
-      return NextResponse.json(
-        { success: false, error: updateError?.message || 'Service not found for this doctor' },
-        { status: 500 }
-      )
+    if (updateError || !updatedService) {
+      return errorResponse(updateError?.message || 'Service not found for this doctor', 500)
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updatedService[0],
-    })
-  } catch (error: any) {
-    console.error('[API Doctor Services] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return successResponse(updatedService)
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AuthError') {
+      return handleAuthError(error)
+    }
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
 
-// POST: Add a new service for doctor
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authUser = await requireDoctor(request)
     const { id: doctorId } = await context.params
     const body = await request.json()
-    const { service_id, fee, enabled = true } = body
 
-    console.log('[API Doctor Services] Adding service:', { doctorId, service_id, fee })
-
-    // Find doctor using the helper function
-    const doctor = await findDoctor(doctorId)
-    
-    if (!doctor) {
-      return NextResponse.json(
-        { success: false, error: 'Doctor not found' },
-        { status: 404 }
-      )
+    const validation = validateServiceInput(body)
+    if (!validation.valid) {
+      return errorResponse(validation.error!, 400)
     }
 
-    // Get service base price if not provided
+    const { service_id, fee, enabled = true } = body
+    const doctor = await findDoctor(doctorId)
+
+    if (!doctor) {
+      return errorResponse('Doctor not found', 404)
+    }
+
+    if (doctor.user_id !== authUser.id) {
+      return errorResponse('Cannot modify another doctor\'s data', 403)
+    }
+
     let finalFee = fee
     if (!finalFee) {
       const { data: service } = await supabaseAdmin
@@ -279,11 +191,21 @@ export async function POST(
         .select('price')
         .eq('id', service_id)
         .single()
-      
+
       finalFee = service?.price || 0
     }
 
-    // Add the service
+    const { data: existing } = await supabaseAdmin
+      .from('doctor_services')
+      .select('id')
+      .eq('doctor_id', doctor.user_id)
+      .eq('service_id', service_id)
+      .single()
+
+    if (existing) {
+      return errorResponse('Service already added', 400)
+    }
+
     const { data: newService, error: insertError } = await supabaseAdmin
       .from('doctor_services')
       .insert({
@@ -296,22 +218,14 @@ export async function POST(
       .single()
 
     if (insertError) {
-      console.error('[API Doctor Services] Error adding service:', insertError)
-      return NextResponse.json(
-        { success: false, error: insertError.message },
-        { status: 500 }
-      )
+      return errorResponse(insertError.message, 500)
     }
 
-    return NextResponse.json({
-      success: true,
-      data: newService,
-    })
-  } catch (error: any) {
-    console.error('[API Doctor Services] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    return successResponse(newService, 201)
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AuthError') {
+      return handleAuthError(error)
+    }
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }

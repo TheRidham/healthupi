@@ -5,7 +5,7 @@ import type { PatientProfileInput } from '@/types'
 import { config } from '@/lib/config'
 
 // Log if service role key is available
-console.log('[Auth Service] Service role key available:', !!config.supabase.supabaseServiceRoleKey)
+const serviceRoleKeyAvailable = !!config.supabase.supabaseServiceRoleKey
 
 // ============================================================================
 // AUTH SERVICE - PHONE AUTHENTICATION WITH SUPABASE (STUB FOR DEVELOPMENT)
@@ -26,14 +26,8 @@ export async function sendOtpToPhone(phone: string): Promise<{ success: boolean;
   const formattedPhone = formatPhoneForDB(cleanedPhone)
 
   try {
-    // Generate and store OTP (development stub)
+    // Generate and store OTP
     const generatedOtp = storeOtp(formattedPhone)
-
-    console.log(`[OTP STUB] OTP sent to ${formattedPhone}: ${generatedOtp}`)
-    console.log('[OTP STUB] In development mode, any 6-digit code will be accepted')
-
-    // In production, integrate with SMS provider here
-    // await smsProvider.send(formattedPhone, `Your HealthUPI OTP is: ${generatedOtp}`)
 
     return { success: true }
   } catch (error) {
@@ -52,11 +46,8 @@ export async function verifyPatientOtp(
   // Format phone for DB
   const formattedPhone = formatPhoneForDB(phone.replace(/\D/g, ''))
 
-  console.log('[Auth Service] Verifying OTP for phone:', formattedPhone, 'otp:', otp)
-
   // Verify OTP
   const verification = verifyOtp(formattedPhone, otp)
-  console.log('[Auth Service] OTP verification result:', verification)
 
   if (!verification.valid) {
     return { success: false, isNewUser: false, error: verification.message }
@@ -69,12 +60,6 @@ export async function verifyPatientOtp(
     .eq('phone', formattedPhone)
     .single()
 
-  console.log('[Auth Service] Patient lookup result:', {
-    error,
-    code: (error as any)?.code,
-    existingPatient: existingPatient ? 'found' : 'not found',
-  })
-
   if (error && error.code !== 'PGRST116') {
     console.error('Error checking patient existence:', error)
     return { success: false, isNewUser: false, error: 'Failed to verify OTP. Please try again.' }
@@ -82,7 +67,6 @@ export async function verifyPatientOtp(
 
   if (existingPatient) {
     // Existing user - return patient data
-    console.log('[Auth Service] Existing patient found:', existingPatient.name)
     return {
       success: true,
       isNewUser: false,
@@ -92,7 +76,6 @@ export async function verifyPatientOtp(
   }
 
   // New user - return flag to show profile form
-  console.log('[Auth Service] New patient detected')
   return {
     success: true,
     isNewUser: true,
@@ -117,12 +100,10 @@ export async function createPatientAccount(data: {
     // Format phone for DB
     const formattedPhone = formatPhoneForDB(data.phone.replace(/\D/g, ''))
 
-    console.log('[Auth Service] Creating patient account with phone:', formattedPhone)
-
-    // Step 1: Generate a random password (phone-based auth doesn't need user to remember it)
+    // Generate a random password (phone-based auth doesn't need user to remember it)
     const randomPassword = Math.random().toString(36).slice(-12)
 
-    // Step 2: Create auth.user using email-based signup (phone auth requires paid plan)
+    // Create auth.user using email-based signup (phone auth requires paid plan)
     // Use a dummy email for phone-only users
     const dummyEmail = `${formattedPhone.replace('+', '')}@healthupi.temp`
 
@@ -144,13 +125,10 @@ export async function createPatientAccount(data: {
     }
 
     if (!authData.user?.id) {
-      console.error('No user ID returned from auth signup')
       return { success: false, error: 'Failed to create account. Please try again.' }
     }
 
-    console.log('[Auth Service] Auth user created successfully:', authData.user.id)
-
-    // Step 3: Create patient_profile row (use admin client to bypass RLS)
+    // Create patient_profile row (use admin client to bypass RLS)
     const profileData: PatientProfileInput = {
       user_id: authData.user.id,
       name: data.name,
@@ -164,15 +142,11 @@ export async function createPatientAccount(data: {
       zip: data.zip || undefined,
     }
 
-    console.log('[Auth Service] Creating patient profile with data:', JSON.stringify(profileData, null, 2))
-
     const { data: profile, error: profileError } = await supabase
       .from('patient_profiles')
       .insert(profileData)
       .select()
       .single()
-
-    console.log('[Auth Service] Profile insert result:', { success: !profileError, error: profileError, data: profile })
 
     if (profileError) {
       console.error('Error creating patient profile:', profileError)
@@ -212,25 +186,14 @@ export async function loginPatient(
   phone: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('[Auth Service] Logging in patient:', { userId, phone })
-
-    // Since we're using email-based auth with dummy emails, we need to:
-    // 1. Get the user's email from auth.users or patient_profiles metadata
-    // 2. Sign in with that email and the stored password
-
-    // For now, use a simpler approach: get session using user_id directly
-    // This works because Supabase maintains the auth session
-
-    // Just verify the user exists in patient_profiles
+    // Verify the user exists in patient_profiles
     const { data: patient, error } = await supabase
       .from('patient_profiles')
       .select('user_id')
-      .eq('user_id', userId)
-      .single()
+    .eq('user_id', userId)
+    .single()
 
-    console.log('[Auth Service] Patient verification result:', { patient, error })
-
-    if (error || !patient) {
+  if (error || !patient) {
       console.error('[Auth Service] Patient not found:', error)
       return { success: false, error: 'Patient account not found' }
     }
@@ -246,8 +209,6 @@ export async function loginPatient(
       role: 'patient',
     }
     localStorage.setItem('patient_session', JSON.stringify(sessionData))
-
-    console.log('[Auth Service] Patient session stored:', sessionData)
 
     return { success: true }
   } catch (error: any) {

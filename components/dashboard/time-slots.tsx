@@ -1,5 +1,7 @@
 "use client"
 
+import { authFetch } from "@/lib/utils/api"
+
 import { useState, useMemo, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -123,7 +125,7 @@ export function TimeSlots() {
           setSlots(result.data.timeSlots)
         }
       } catch (err) {
-        console.error('[TimeSlots] Error:', err)
+        // Silent fail
       } finally {
         setLoading(false)
       }
@@ -227,9 +229,8 @@ export function TimeSlots() {
 
     setSaving(true)
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/timeslots`, {
+      const response = await authFetch(`/api/doctor/${doctorId}/timeslots`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           day_of_week: newSlot.day_of_week,
           start_time: minutesToTime(startMins),
@@ -254,7 +255,6 @@ export function TimeSlots() {
         setOverlapError(result.error || 'Failed to add slot')
       }
     } catch (err) {
-      console.error('[TimeSlots] Error adding slot:', err)
       setOverlapError('Failed to add slot')
     } finally {
       setSaving(false)
@@ -263,7 +263,7 @@ export function TimeSlots() {
 
   const handleDeleteSlot = async (slotId: string) => {
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/timeslots?slot_id=${slotId}`, {
+      const response = await authFetch(`/api/doctor/${doctorId}/timeslots?slot_id=${slotId}`, {
         method: 'DELETE',
       })
       
@@ -273,7 +273,7 @@ export function TimeSlots() {
         setSlots(prev => prev.filter(s => s.id !== slotId))
       }
     } catch (err) {
-      console.error('[TimeSlots] Error deleting slot:', err)
+      // Silent fail
     }
   }
 
@@ -302,9 +302,8 @@ export function TimeSlots() {
     
     try {
       for (const slot of templateSlots) {
-        await fetch(`/api/doctor/${doctorId}/timeslots`, {
+        await authFetch(`/api/doctor/${doctorId}/timeslots`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...slot,
             appointment_duration: 30,
@@ -320,7 +319,7 @@ export function TimeSlots() {
         setSlots(result.data.timeSlots || [])
       }
     } catch (err) {
-      console.error('[TimeSlots] Error applying template:', err)
+      // Silent fail
     } finally {
       setSaving(false)
       setIsTemplateDialogOpen(false)
