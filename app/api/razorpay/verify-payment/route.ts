@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase-server";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import crypto from "crypto";
+
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Auth check
-    const cookieStore = cookies();
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { cookie: cookieStore.toString() } } },
-    );
+    
+    const supabase = await createSupabaseServerClient();
 
     const {
       data: { user },
@@ -43,10 +37,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Update order + create booking in DB
-    const serviceSupabase = getSupabaseServiceClient();
-
-    const { data: order } = await serviceSupabase
+    const { data: order } = await supabase
       .from("orders")
       .update({ status: "paid", razorpay_payment_id })
       .eq("razorpay_order_id", razorpay_order_id)

@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRazorpayInstance } from "@/lib/razorpay";
-import { getSupabaseServiceClient } from "@/lib/supabase-server";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate the user via Supabase session
-    const cookieStore = cookies();
-    const supabaseAuth = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: { cookie: cookieStore.toString() },
-        },
-      },
-    );
-
+    const supabase = await createSupabaseServerClient();
     const {
       data: { user },
       error: authError,
-    } = await supabaseAuth.auth.getUser();
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,7 +41,6 @@ export async function POST(req: NextRequest) {
     });
 
     // 4. Save order to Supabase with status 'created'
-    const supabase = getSupabaseServiceClient();
     const { data: order, error: dbError } = await supabase
       .from("orders")
       .insert({

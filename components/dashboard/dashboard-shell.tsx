@@ -26,6 +26,7 @@ import {
   Check,
   Copy,
 } from "lucide-react"
+import PaymentButton from "../PaymentButton"
 
 const PROFILE_SUBTABS = [
   { key: "services", label: "Services", icon: Stethoscope },
@@ -63,6 +64,7 @@ export function DashboardShell({ doctorId = "andrew-mitchell" }: DashboardShellP
             <p className="text-sm text-muted-foreground mt-1">
               Manage your practice, consultations, and personal information
             </p>
+            {/* <PaymentButton /> */}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center h-9 rounded-md border border-border bg-muted/50 pl-3 pr-1 text-sm text-muted-foreground">
