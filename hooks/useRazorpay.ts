@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useRazorpay, RazorpayOrderOptions } from "react-razorpay";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 interface PaymentOptions {
   amount: number;
@@ -25,6 +25,8 @@ export function usePayment() {
     error: null,
     success: false,
   });
+
+  const supabase = getSupabaseBrowserClient();
 
   const initiatePayment = useCallback(
     async (options: PaymentOptions) => {
@@ -51,6 +53,7 @@ export function usePayment() {
         // 3. Create order via your API route
         const res = await fetch("/api/razorpay/create-order", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: options.amount,
