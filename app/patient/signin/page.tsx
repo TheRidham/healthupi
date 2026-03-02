@@ -50,13 +50,11 @@ function PatientSignInContent() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   function handleSendOtp() {
-    console.log('[Signin Page] Sending OTP for phone:', phone)
     setError("");
     setLoading(true);
 
     sendOtpToPhone(phone)
       .then((result) => {
-        console.log('[Signin Page] OTP send result:', result)
         setLoading(false);
         if (result.success) {
           setStep("otp");
@@ -65,7 +63,6 @@ function PatientSignInContent() {
         }
       })
       .catch((err) => {
-        console.error('[Signin Page] OTP send error:', err)
         setLoading(false);
         setError("An error occurred. Please try again.");
       });
@@ -90,13 +87,11 @@ function PatientSignInContent() {
   }
 
   function handleVerifyOtp() {
-    console.log('[Signin Page] Verifying OTP for phone:', phone, 'otp:', otp.join(''))
     setError("");
     setLoading(true);
 
     verifyPatientOtp(phone, otp.join(""))
       .then((result) => {
-        console.log('[Signin Page] OTP verification result:', result)
         setLoading(false);
 
         if (!result.success) {
@@ -105,15 +100,12 @@ function PatientSignInContent() {
         }
 
         if (result.isNewUser) {
-          console.log('[Signin Page] New user detected, showing profile form')
           // New user - show profile form
           setStep("profile");
         } else if (result.userId && result.profile) {
-          console.log('[Signin Page] Existing user detected, logging in')
           // Existing user - login directly
           loginPatient(result.userId, phone)
             .then((loginResult) => {
-              console.log('[Signin Page] Login patient result:', loginResult)
 
               if (loginResult.success) {
                 // Update auth context
@@ -125,29 +117,23 @@ function PatientSignInContent() {
                   createdAt: new Date(),
                 });
 
-                console.log('[Signin Page] Auth context updated, redirecting to:', redirectUrl)
 
                 // Redirect
                 setTimeout(() => {
-                  console.log('[Signin Page] Redirecting now...')
                   router.push(redirectUrl);
                 }, 500);
               } else {
-                console.error('[Signin Page] Login failed:', loginResult.error)
                 setError(loginResult.error || "Login failed. Please try again.");
               }
             })
             .catch((err) => {
-              console.error('[Signin Page] Login error:', err)
               setError("An error occurred during login. Please try again.");
             });
         } else {
-          console.error('[Signin Page] Unexpected OTP result:', result)
           setError("Unexpected error. Please try again.");
         }
       })
       .catch((err) => {
-        console.error('[Signin Page] OTP verification error:', err)
         setLoading(false);
         setError("An error occurred. Please try again.");
       });

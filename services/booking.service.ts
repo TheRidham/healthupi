@@ -152,35 +152,7 @@ export async function getPatientBookings(
   }
 }
 
-/**
- * Get upcoming bookings for a patient
- */
-export async function getUpcomingBookings(patientId: string): Promise<Appointment[]> {
-  return getPatientBookings(patientId, 'confirmed')
-}
 
-/**
- * Get past bookings for a patient
- */
-export async function getPastBookings(patientId: string): Promise<Appointment[]> {
-  try {
-    const response = await fetch(`/api/appointments?patient_id=${patientId}`)
-    const result = await response.json()
-
-    if (!response.ok || !result.success) {
-      console.error('[Booking Service] Error getting past bookings:', result.error)
-      return []
-    }
-
-    const allAppointments = result.data || []
-    return allAppointments.filter((apt: any) =>
-      ['completed', 'cancelled', 'no-show'].includes(apt.status)
-    )
-  } catch (error: any) {
-    console.error('[Booking Service] Error in getPastBookings:', error)
-    return []
-  }
-}
 
 /**
  * Confirm a booking (update status to 'confirmed')

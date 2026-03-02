@@ -12,44 +12,55 @@ export async function GET(request: NextRequest) {
       return errorResponse('patient_id query parameter required', 400)
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data: appointmentsData, error: appointmentsError } = await supabaseAdmin
       .from('appointments')
       .select(`
         *,
-        doctor:doctor_profiles!appointments_doctor_id_fkey(user_id, first_name, last_name, photo_url, specialization)
+        doctor:doctor_profiles!inner(id, user_id, first_name, last_name, photo_url, specialization)
       `)
       .eq('patient_id', patientId)
       .order('appointment_date', { ascending: true })
 
-    if (error) {
-      return errorResponse(error.message, 500)
+    if (appointmentsError) {
+      console.error('[API Appointments] Database error:', appointmentsError)
+      return errorResponse(appointmentsError.message, 500)
     }
 
-    // Fetch all services to match by service_id
     const { data: servicesData } = await supabaseAdmin
       .from('services')
       .select('id, name, icon, type')
 
     const serviceMap = new Map((servicesData || []).map(s => [s.id, s]))
 
-    const appointments = (data || []).map(apt => {
+    const appointments = (appointmentsData || []).map((apt: any) => {
       const service = serviceMap.get(apt.service_id)
+      const service_name = service?.name || apt.service_name || 'Consultation'
+      const service_icon = service?.icon || 'Video'
+      const doctorName = apt.doctor ? `Dr. ${apt.doctor.first_name} ${apt.doctor.last_name}` : 'Doctor'
+      const doctor_photo_url = apt.doctor?.photo_url
+
+      console.log('[API] Mapping appointment:', apt.id, 'service_id:', apt.service_id, 'service_name:', service_name, 'date:', apt.appointment_date, 'status:', apt.status)
+
       return {
         ...apt,
-        service_name: service?.name || 'Consultation',
-        service_icon: service?.icon || 'Video',
-        doctorName: apt.doctor ? `Dr. ${apt.doctor.first_name} ${apt.doctor.last_name}` : 'Doctor',
+        service_name,
+        service_icon,
+        doctorName,
+        doctor_photo_url,
         appointment_date: apt.appointment_date ? new Date(apt.appointment_date) : null,
       }
     })
 
+    console.log('[API] Total appointments returned:', appointments.length)
+
     if (status) {
-      const filtered = appointments.filter(apt => apt.status === status)
+      const filtered = appointments.filter((apt: any) => apt.status === status)
       return successResponse(filtered)
     }
 
     return successResponse(appointments)
-  } catch (error) {
-    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
+  } catch (error: any) {
+    console.error('[API Appointments] Error:', error)
+    return errorResponse(error?.message || 'Internal server error', 500)
   }
 }
