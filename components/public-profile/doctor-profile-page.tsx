@@ -363,19 +363,45 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   // Check localStorage for pending booking after login
   useEffect(() => {
     const pendingBooking = localStorage.getItem("pending_booking")
+
     if (pendingBooking && user && user.role === "patient") {
-      const booking = JSON.parse(pendingBooking)
-      // Find the matching service from SERVICES or FOLLOWUP_SERVICES
-      const allServices = [...SERVICES, ...FOLLOWUP_SERVICES]
-      const service = allServices.find(s => s.id === booking.serviceId)
-      if (service) {
+      try {
+        const booking = JSON.parse(pendingBooking)
+
+        // Reconstruct service from stored data
+        const service = {
+          id: booking.serviceId,
+          name: booking.serviceName,
+          price: booking.servicePrice,
+          type: booking.serviceType as 'service' | 'followup',
+          icon: booking.serviceType === 'followup' ? <RotateCcw className="size-5" /> : <Video className="size-5" />,
+          description: booking.serviceDescription || '',
+          enabled: true,
+        }
+
         setSelectedService(service)
         setSelectedDay(new Date(booking.date))
-        setSelectedSlot(booking.timeSlot)
+
+        // Create a time slot object from stored data
+        const timeSlot = {
+          time: booking.timeSlot,
+          endTime: booking.timeSlotEnd,
+          duration: booking.timeSlotDuration,
+          available: true,
+        }
+
+        setSelectedSlot(timeSlot)
         setIsFollowUp(booking.serviceType === "followup")
-        setShowBookingModal(true)
+        setIsBookingMode(true)
+
+        // Small delay to ensure state is updated before opening modal
+        setTimeout(() => {
+          setShowBookingModal(true)
+          localStorage.removeItem("pending_booking")
+        }, 100)
+      } catch (error) {
+        localStorage.removeItem("pending_booking")
       }
-      localStorage.removeItem("pending_booking")
     }
   }, [user])
 
@@ -462,23 +488,28 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     
     // Check if user is logged in as patient
     if (!user || user.role !== "patient") {
-      // Store only serializable booking details in localStorage
-      localStorage.setItem("pending_booking", JSON.stringify({
+      // Store complete booking data including full service details
+      const bookingData = {
         serviceId: selectedService.id,
         serviceName: selectedService.name,
         servicePrice: selectedService.price,
         serviceType: selectedService.type,
+        serviceDescription: selectedService.description,
         date: selectedDay.toISOString(),
         timeSlot: selectedSlot.time,
         timeSlotEnd: selectedSlot.endTime,
         timeSlotDuration: selectedSlot.duration,
         doctorId: doctorId
-      }))
+      }
+
+      console.log('[Doctor Profile] Storing pending booking:', bookingData)
+      localStorage.setItem("pending_booking", JSON.stringify(bookingData))
+
       // Redirect to patient login with return URL
       router.push(`/patient/signin?redirect=/doctor/${doctorId}`)
       return
     }
-    
+
     setIsFollowUp(selectedService.type === "followup")
     setShowBookingModal(true)
   }
