@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/server/supabase-admin';
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 function verifyWebhookSignature(body: string, signature: string, secret: string): boolean {
   const expectedSignature = crypto
     .createHmac('sha256', secret)
