@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRazorpayInstance } from "@/lib/razorpay";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/server/supabase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 2. Parse and validate request body
     const body = await req.json();
     const { amount, currency = "INR", metadata = {} } = body;
 
@@ -28,23 +17,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Create Razorpay order
+    const userId = metadata.patient_id;
+    if (!userId) {
+      return NextResponse.json({ error: "patient_id is required in metadata" }, { status: 400 });
+    }
+
     const razorpay = getRazorpayInstance();
     const razorpayOrder = await razorpay.orders.create({
       amount,
       currency,
       receipt: `receipt_${Date.now()}`,
       notes: {
-        user_id: user.id,
+        user_id: userId,
         ...metadata,
       },
     });
 
-    // 4. Save order to Supabase with status 'created'
-    const { data: order, error: dbError } = await supabase
+    const { data: order, error: dbError } = await supabaseAdmin
       .from("orders")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         razorpay_order_id: razorpayOrder.id,
         amount,
         currency,
@@ -55,14 +47,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (dbError) {
-      console.error("DB insert error:", dbError);
       return NextResponse.json(
         { error: "Failed to save order" },
         { status: 500 },
       );
     }
 
-    // 5. Return order details to client
     return NextResponse.json({
       orderId: razorpayOrder.id,
       amount: razorpayOrder.amount,
@@ -70,7 +60,6 @@ export async function POST(req: NextRequest) {
       dbOrderId: order.id,
     });
   } catch (error) {
-    console.error("Create order error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

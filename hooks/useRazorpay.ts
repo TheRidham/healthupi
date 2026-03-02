@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useRazorpay, RazorpayOrderOptions } from "react-razorpay";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 interface PaymentOptions {
   amount: number;
@@ -26,8 +25,6 @@ export function usePayment() {
     success: false,
   });
 
-  const supabase = getSupabaseBrowserClient();
-
   const initiatePayment = useCallback(
     async (options: PaymentOptions) => {
       setState({ loading: true, error: null, success: false });
@@ -40,17 +37,7 @@ export function usePayment() {
           );
         }
 
-        // 2. Verify user is logged in
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          throw new Error("You must be logged in to make a payment.");
-        }
-
-        // 3. Create order via your API route
+        // 2. Create order via your API route
         const res = await fetch("/api/razorpay/create-order", {
           method: "POST",
           credentials: "include",
@@ -70,7 +57,7 @@ export function usePayment() {
 
         const { orderId, amount, currency } = await res.json();
 
-        // 4. Configure Razorpay checkout — fully typed via RazorpayOrderOptions
+        // 3. Configure Razorpay checkout — fully typed via RazorpayOrderOptions
         const rzpOptions: RazorpayOrderOptions = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
           amount: amount,
@@ -78,9 +65,6 @@ export function usePayment() {
           order_id: orderId,
           name: options.name,
           description: options.description,
-          prefill: {
-            email: user.email,
-          },
           theme: {
             color: "#6366f1",
           },

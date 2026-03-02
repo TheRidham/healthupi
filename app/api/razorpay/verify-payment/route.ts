@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/server/supabase-admin";
 import crypto from "crypto";
-
 
 export async function POST(req: NextRequest) {
   try {
-    
-    const supabase = await createSupabaseServerClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // 2. Get payment details from client
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       await req.json();
 
-    // 3. Verify signature manually
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return NextResponse.json({ error: "Missing payment details" }, { status: 400 });
+    }
+
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -37,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: order } = await supabase
+    const { data: order } = await supabaseAdmin
       .from("orders")
       .update({ status: "paid", razorpay_payment_id })
       .eq("razorpay_order_id", razorpay_order_id)
@@ -46,7 +38,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Verify payment error:", error);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });
   }
 }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSupabaseServiceClient } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/server/supabase-admin';
 
-// Tell Next.js not to parse body — we need raw bytes for signature verification
 export const config = {
   api: { bodyParser: false },
 };
@@ -12,8 +11,7 @@ function verifyWebhookSignature(body: string, signature: string, secret: string)
     .createHmac('sha256', secret)
     .update(body)
     .digest('hex');
-  
-  // Constant-time comparison to prevent timing attacks
+
   return crypto.timingSafeEqual(
     Buffer.from(expectedSignature),
     Buffer.from(signature)
@@ -22,7 +20,6 @@ function verifyWebhookSignature(body: string, signature: string, secret: string)
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Get raw body for signature verification
     const rawBody = await req.text();
     const signature = req.headers.get('x-razorpay-signature');
 
@@ -30,7 +27,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
-    // 2. Verify webhook signature — reject if invalid
     const isValid = verifyWebhookSignature(
       rawBody,
       signature,
@@ -38,15 +34,12 @@ export async function POST(req: NextRequest) {
     );
 
     if (!isValid) {
-      console.warn('Invalid Razorpay webhook signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // 3. Parse the verified payload
     const event = JSON.parse(rawBody);
     const eventType = event.event;
 
-    // 4. Handle relevant events
     switch (eventType) {
       case 'payment.captured':
         await handlePaymentCaptured(event.payload.payment.entity);
@@ -57,41 +50,32 @@ export async function POST(req: NextRequest) {
         break;
 
       default:
-        // Log unhandled events but still return 200 (so Razorpay doesn't retry)
-        console.log(`Unhandled webhook event: ${eventType}`);
+        break;
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error) {
-    console.error('Webhook error:', error);
-    // Return 500 so Razorpay retries the webhook
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
 
 async function handlePaymentCaptured(payment: any) {
-  const supabase = getSupabaseServiceClient();
-
-  const { data: order, error: findError } = await supabase
+  const { data: order, error: findError } = await supabaseAdmin
     .from('orders')
     .select('*')
     .eq('razorpay_order_id', payment.order_id)
     .single();
 
   if (findError || !order) {
-    console.error('Order not found for payment:', payment.order_id);
     return;
   }
 
-  // Idempotency check — don't process already paid orders
   if (order.status === 'paid') {
-    console.log('Order already marked as paid, skipping:', order.id);
     return;
   }
 
-  // Update order status to paid
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from('orders')
     .update({
       status: 'paid',
@@ -101,55 +85,37 @@ async function handlePaymentCaptured(payment: any) {
     .eq('id', order.id);
 
   if (updateError) {
-    console.error('Failed to update order:', updateError);
-    throw updateError; // Throw so Razorpay retries
+    throw updateError;
   }
 
-  // Unlock features for user
   await unlockUserFeatures(order.user_id, order);
-
-  // Send confirmation email
   await sendConfirmationEmail(order.user_id, order, payment);
-
-  console.log(`Payment captured for order: ${order.id}`);
 }
 
 async function handlePaymentFailed(payment: any) {
-  const supabase = getSupabaseServiceClient();
-
-  await supabase
+  await supabaseAdmin
     .from('orders')
     .update({
       status: 'failed',
       updated_at: new Date().toISOString(),
     })
     .eq('razorpay_order_id', payment.order_id);
-
-  console.log(`Payment failed for Razorpay order: ${payment.order_id}`);
 }
 
 async function unlockUserFeatures(userId: string, order: any) {
-  const supabase = getSupabaseServiceClient();
-  
-  // Example: update a user profile or subscriptions table
-  // Customize based on your use case
-  const { error } = await supabase
-    .from('user_access') // your own table
+  const { error } = await supabaseAdmin
+    .from('user_access')
     .upsert({
       user_id: userId,
       has_access: true,
       granted_at: new Date().toISOString(),
     });
 
-  if (error) console.error('Failed to unlock features:', error);
+  if (error) {
+  }
 }
 
 async function sendConfirmationEmail(userId: string, order: any, payment: any) {
-  // Option 1: Use Supabase Edge Function to send email via Resend/SendGrid
-  // Option 2: Call your email API directly
-  // Option 3: Use Supabase DB trigger + pg_net extension
-
-  // Example with fetch to your email service:
   try {
     await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
       method: 'POST',
@@ -160,12 +126,10 @@ async function sendConfirmationEmail(userId: string, order: any, payment: any) {
       body: JSON.stringify({
         user_id: userId,
         order_id: order.id,
-        amount: order.amount / 100, // convert paise to rupees
+        amount: order.amount / 100,
         payment_id: payment.id,
       }),
     });
   } catch (error) {
-    // Don't throw — email failure shouldn't break payment confirmation
-    console.error('Email send failed:', error);
   }
 }

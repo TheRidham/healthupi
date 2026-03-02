@@ -1,16 +1,19 @@
 import Razorpay from 'razorpay';
 
-// Singleton to avoid creating multiple instances
 let razorpayInstance: Razorpay | null = null;
 
 export function getRazorpayInstance() {
   if (!razorpayInstance) {
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
       throw new Error('Razorpay credentials are missing from environment variables');
     }
+
     razorpayInstance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
+      key_id: keyId,
+      key_secret: keySecret,
     });
   }
   return razorpayInstance;

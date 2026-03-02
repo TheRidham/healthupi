@@ -36,6 +36,7 @@ import { useAuth } from "@/lib/auth-context"
 import { createBooking } from "@/services/booking.service"
 import { calculateAge } from "@/lib/supabase/patient"
 import { getServiceUuid } from "@/lib/utils/mock-data"
+import { usePayment } from "@/hooks/useRazorpay"
 import type { ServiceOption } from "@/types"
 
 interface TimeSlot {
@@ -56,7 +57,7 @@ interface BookingModalProps {
   isFollowUp: boolean
 }
 
-type Step = "details" | "processing"
+type Step = "details" | "payment" | "processing"
 
 function getTimeSlotDisplay(slot: TimeSlot): string {
   return `${slot.time} - ${slot.endTime}`
@@ -74,9 +75,11 @@ export function BookingModal({
   isFollowUp,
 }: BookingModalProps) {
   const { user, patientProfile } = useAuth()
+  const { initiatePayment, loading: paymentLoading, error: paymentError } = usePayment()
   const [step, setStep] = useState<Step>("details")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [razorpayPaymentId, setRazorpayPaymentId] = useState<string | null>(null)
 
   // Form fields
   const [name, setName] = useState("")
@@ -131,13 +134,9 @@ export function BookingModal({
     }
 
     try {
-      // Convert service ID to UUID
       const serviceUuid = getServiceUuid(service.id)
-      console.log('[Booking Modal] Service UUID:', serviceUuid)
 
-      // Get start time from time slot object and convert to 24-hour format
       const rawStartTime = timeSlot.time
-      console.log('[Booking Modal] Raw start time:', rawStartTime)
 
       const timeMatch = rawStartTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
       let startHours = 0
@@ -156,9 +155,7 @@ export function BookingModal({
       }
 
       const startTime = `${startHours.toString().padStart(2, '0')}:${startMins.toString().padStart(2, '0')}`
-      console.log('[Booking Modal] Converted start time:', startTime)
 
-      // Calculate end time
       const endMinutes = 30
       let endHrs = startHours
       let endMins = startMins + endMinutes
@@ -181,10 +178,8 @@ export function BookingModal({
         notes: issue,
         mediaFiles: uploadedFiles,
         paymentAmount: service.price,
-        paymentMethod: "upi",
+        paymentMethod: "razorpay",
       }
-
-      console.log('[Booking Modal] Booking data:', bookingData)
 
       const result = await createBooking(bookingData)
 
@@ -194,16 +189,44 @@ export function BookingModal({
         return
       }
 
-      // Success - move to processing step
-      setStep("processing")
-
-      setTimeout(() => {
-        onSuccess()
-      }, 2000)
+      setStep("payment")
     } catch (error: any) {
-      console.error('[Booking Modal] Error submitting booking:', error)
       setError("An error occurred. Please try again.")
       setLoading(false)
+    }
+  }
+
+  async function handlePayment() {
+    setError("")
+
+    try {
+      const amountInPaise = service.price * 100
+
+      await initiatePayment({
+        amount: amountInPaise,
+        name: "Health UPI",
+        description: `Appointment with ${doctorName}`,
+        metadata: {
+          doctor_id: doctorId,
+          service_id: service.id,
+          patient_id: user?.id || patientProfile?.user_id || "",
+        },
+        onSuccess: (paymentId: string, orderId: string) => {
+          setRazorpayPaymentId(paymentId)
+          setStep("processing")
+
+          setTimeout(() => {
+            onSuccess()
+          }, 2000)
+        },
+        onError: (error: string) => {
+          setError(error || "Payment failed. Please try again.")
+          setStep("details")
+        },
+      })
+    } catch (error: any) {
+      setError("Payment failed. Please try again.")
+      setStep("details")
     }
   }
 
@@ -436,13 +459,84 @@ export function BookingModal({
                   </>
                 ) : (
                   <>
-                    Book Appointment
+                    Proceed to Payment
                     <ArrowRight className="size-3.5" />
                   </>
                 )}
               </Button>
             </div>
           </>)}
+
+          {/* Payment step */}
+          {step === "payment" && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Complete Payment</DialogTitle>
+                <DialogDescription>
+                  Pay securely via Razorpay to confirm your appointment
+                </DialogDescription>
+              </DialogHeader>
+
+              <Card className="py-3 bg-primary/[0.03] border-primary/15">
+                <CardContent className="px-4 py-0">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      {service.icon}
+                      <span className="font-medium text-foreground">{service.name}</span>
+                    </div>
+                    <span className="font-semibold text-primary text-lg">₹{service.price}</span>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="size-3" />
+                      {format(date, "EEE, MMM d, yyyy")}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="size-3" />
+                      {getTimeSlotDisplay(timeSlot)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                <ShieldCheck className="size-5 text-muted-foreground" />
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm font-medium">Secure Payment</p>
+                  <p className="text-xs text-muted-foreground">
+                    Your payment is secured by Razorpay's industry-standard encryption
+                  </p>
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
+              <div className="flex items-center justify-between pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setStep("details")}>
+                  Back
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={paymentLoading}
+                  onClick={handlePayment}
+                  className="gap-1.5"
+                >
+                  {paymentLoading ? (
+                    <>
+                      <Loader2 className="size-3.5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Pay ₹{service.price}
+                      <ArrowRight className="size-3.5" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
 
           {/* Processing step */}
           {step === "processing" && (
