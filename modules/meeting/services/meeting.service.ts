@@ -50,12 +50,12 @@ export async function validateMeeting(appointmentId: string, userId: string) {
 
     if (appointment.doctor_id === userId) {
       role = "doctor";
-      const doctor = appointment.doctor_profiles;
+      const doctor = appointment.doctor_profiles[0];
       const title = doctor.title ? doctor.title + ". " : "";
       userName = title + doctor.first_name + " " + doctor.last_name;
     } else if (appointment.patient_id === userId) {
       role = "patient";
-      userName = appointment.patient_profiles.name;
+      userName = appointment.patient_profiles[0].name;
     } else {
       throw new Error("You are not authorized to join this meeting");
     }
