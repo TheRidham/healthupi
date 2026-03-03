@@ -1,8 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { config } from './config'
 
 export const supabaseUrl = config.supabase.supabaseUrl
 export const supabaseAnonKey = config.supabase.supabaseAnonKey
+
+// Browser client that syncs session to cookies automatically
+export const supabase = createBrowserClient(
+  supabaseUrl,
+  supabaseAnonKey
+)
 
 export const tables = {
   users: "users",
@@ -16,12 +22,3 @@ export const tables = {
   videoCalls: "video_calls",
   notifications: "notifications",
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-  },
-  db: {
-    schema: 'public',
-  },
-})
