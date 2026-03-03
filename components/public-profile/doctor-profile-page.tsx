@@ -43,6 +43,8 @@ import { BookingModal } from "./booking-modal"
 import { PaymentSuccess } from "./payment-success"
 import { Header } from "@/components/header"
 import { useAuth } from "@/lib/auth-context"
+import { sendEmail } from "@/lib/email/emailHelper"
+import { toast } from "sonner"
 
 interface DoctorProfilePageProps {
   doctorId?: string
@@ -514,7 +516,53 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     setShowBookingModal(true)
   }
 
-  function handlePaymentSuccess() {
+  async function handlePaymentSuccess(appointmentData: any) {
+    try {
+      if (!appointmentData) return
+
+      const appointmentDate = new Date(appointmentData.appointment_date)
+      const formattedDate = format(appointmentDate, "d MMMM yyyy")
+      const timeString = appointmentData.start_time
+      
+      // Use email from booking form (patientEmail) or fallback to auth user email
+      const emailToUse = appointmentData.patientEmail || user?.email || ""
+      const nameToUse = appointmentData.patientName || user?.name || "Patient"
+      
+      // Send email to patient with real data
+      const res = await sendEmail("consultation", {
+        patientEmail: emailToUse,
+        patientName: nameToUse,
+        doctorName: doctor?.name || "Doctor",
+        specialization: doctor?.specialization || "",
+        date: formattedDate,
+        time: timeString,
+        mode: appointmentData?.serviceType,
+        meetingLink: `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
+        appointmentId: appointmentData.id,
+      });
+
+      const docRes = await sendEmail("doctorAppointmentMail", {
+        doctorEmail: doctor?.email,
+        patientName: nameToUse,
+        doctorName: doctor?.name || "Doctor",
+        specialization: doctor?.specialization || "",
+        date: formattedDate,
+        time: timeString,
+        mode: appointmentData?.serviceType,
+        meetingLink: `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
+        appointmentId: appointmentData.id,
+      })
+
+      if (res.success) {
+        toast.success("Confirmation email sent to " + emailToUse);
+      } else {
+        console.error("Email sending failed:", res.error);
+      }
+    } catch (error) {
+      console.error("Error in handlePaymentSuccess:", error);
+      toast.error("There was an issue sending confirmation email");
+    }
+
     setShowBookingModal(false)
     setView("success")
   }

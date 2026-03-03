@@ -48,7 +48,7 @@ interface TimeSlot {
 interface BookingModalProps {
   open: boolean
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (appointmentData: any) => void
   service: ServiceOption
   date: Date
   timeSlot: TimeSlot
@@ -91,6 +91,7 @@ export function BookingModal({
   const [issue, setIssue] = useState("")
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [appointmentData, setAppointmentData] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Pre-fill when modal opens with user data
@@ -179,6 +180,7 @@ export function BookingModal({
         mediaFiles: uploadedFiles,
         paymentAmount: service.price,
         paymentMethod: "razorpay",
+        serviceType: service.type
       }
 
       const result = await createBooking(bookingData)
@@ -189,6 +191,13 @@ export function BookingModal({
         return
       }
 
+      // Store appointment data with form email to pass to parent on success
+      const appointmentWithEmail = {
+        ...result.appointment,
+        patientEmail: email,
+        patientName: name
+      }
+      setAppointmentData(appointmentWithEmail)
       setStep("payment")
     } catch (error: any) {
       setError("An error occurred. Please try again.")
@@ -216,7 +225,7 @@ export function BookingModal({
           setStep("processing")
 
           setTimeout(() => {
-            onSuccess()
+            onSuccess(appointmentData)
           }, 2000)
         },
         onError: (error: string) => {

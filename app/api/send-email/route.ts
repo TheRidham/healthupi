@@ -1,93 +1,31 @@
+// app/api/send-email/route.ts
 import { NextResponse } from "next/server";
-import { resend } from "@/lib/resend";
-import ConsultationEmail from "@/emails/ConsultationEmail";
+import { emailTemplates } from "@/lib/email/templates";
 
-export const runtime = "nodejs"; // Required for Resend
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const { type, payload } = body;
 
-    const {
-      patientEmail,
-      patientName,
-      doctorName,
-      specialization,
-      date,
-      time,
-      mode,
-      meetingLink,
-      appointmentId,
-    } = body;
-
-    // Basic validation
-    if (
-      !patientEmail ||
-      !patientName ||
-      !doctorName ||
-      !date ||
-      !time ||
-      !mode ||
-      !meetingLink ||
-      !appointmentId
-    ) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
+    if (!type || !payload) {
+      return NextResponse.json({ error: "Missing type or payload" }, { status: 400 });
     }
 
-    const { data, error } = await resend.emails.send({
-      from: "Health Upi Team <consult@yourdomain.com>", // Must be verified domain
-      to: patientEmail,
-      subject: "Your Consultation is Confirmed 🩺",
-      react: ConsultationEmail({
-        patientName,
-        doctorName,
-        specialization,
-        date,
-        time,
-        mode,
-        meetingLink,
-        appointmentId,
-      }),
-    });
+    console.log(type, payload)
 
-    if (error) {
-      return NextResponse.json({ error }, { status: 400 });
+    const templateFunc = emailTemplates[type as keyof typeof emailTemplates];
+
+    if (!templateFunc) {
+      return NextResponse.json({ error: "Invalid email type" }, { status: 400 });
     }
 
-    return NextResponse.json({
-      success: true,
-      messageId: data?.id,
-    });
-  } catch (error) {
-    console.error("Email Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    const data = await templateFunc(payload);
+
+    return NextResponse.json({ success: true, messageId: data?.id });
+  } catch (err) {
+    console.error("Email Error:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-
-
-//------------frontend call example----------------
-/*
-await fetch("/api/send-consultation-email", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    patientEmail: "patient@gmail.com",
-    patientName: "Vinit",
-    doctorName: "Sharma",
-    specialization: "Cardiologist",
-    date: "10 March 2026",
-    time: "5:00 PM IST",
-    mode: "video",
-    meetingLink: "https://yourapp.com/meeting/123",
-    appointmentId: "APT-12345",
-  }),
-});
-*/
