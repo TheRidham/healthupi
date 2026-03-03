@@ -61,7 +61,7 @@ export function verifyOtp(phone: string, otp: string): { valid: boolean; message
     try {
       const localStorageData = localStorage.getItem(`otp_${phone}`)
       if (localStorageData) {
-        storedData = JSON.parse(localStorageData)
+        storedData = JSON.parse(localStorageData as string)
       }
     } catch (error) {
       console.error('Failed to read OTP from localStorage:', error)
@@ -73,7 +73,7 @@ export function verifyOtp(phone: string, otp: string): { valid: boolean; message
   }
 
   // Check if expired
-  if (Date.now() > storedData.expiresAt) {
+  if (Date.now() > (storedData?.expiresAt || 0)) {
     // Clean up expired OTP
     otpStorage.delete(phone)
     localStorage.removeItem(`otp_${phone}`)
@@ -81,7 +81,7 @@ export function verifyOtp(phone: string, otp: string): { valid: boolean; message
   }
 
   // Verify OTP
-  if (storedData.otp !== otp) {
+  if ((storedData?.otp) !== otp) {
     return { valid: false, message: 'Invalid OTP. Please try again.' }
   }
 
