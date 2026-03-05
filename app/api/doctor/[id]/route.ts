@@ -86,6 +86,7 @@ export async function GET(
       phone: doctor.phone || '',
       email: doctor.email || '',
       website: doctor.website || '',
+      googleMeetLink: doctor.google_meet_link || '',
       languages: doctor.languages || [],
       base_fee: doctor.base_fee,
       availability: doctor.availability,
@@ -131,7 +132,7 @@ export async function PUT(
       'specialization', 'sub_specialization', 'experience_years',
       'qualifications', 'registration_no', 'clinic_name', 'hospital',
       'address', 'city', 'state', 'zip', 'phone', 'email', 'website',
-      'languages', 'base_fee', 'availability', 'photo_url', 'clinic_photo_urls'
+      'google_meet_link', 'languages', 'base_fee', 'availability', 'photo_url', 'clinic_photo_urls'
     ]
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }

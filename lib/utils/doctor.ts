@@ -33,18 +33,21 @@ export function getDoctorUuid(doctorIdOrSlug: string): string {
  */
 export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | null> {
   try {
+    // URL decode the input first
+    const decodedId = decodeURIComponent(doctorIdOrSlug)
+    
     // If already a UUID, return it
-    if (doctorIdOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-      return doctorIdOrSlug
+    if (decodedId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return decodedId
     }
 
-    console.log('[Doctor Utils] Fetching doctor UUID for slug:', doctorIdOrSlug)
+    console.log('[Doctor Utils] Fetching doctor UUID for slug:', decodedId)
 
     // First, try by user_id
     const { data, error } = await supabase
       .from('doctor_profiles')
       .select('user_id')
-      .eq('user_id', doctorIdOrSlug)
+      .eq('user_id', decodedId)
       .single()
 
     if (!error && data?.user_id) {
@@ -53,18 +56,24 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
     }
 
     // Try to find by first_name + last_name combination
-    const parts = doctorIdOrSlug.split('-')
-    if (parts.length >= 2) {
+    // Handle different slug formats: "firstname-lastname" or "firstname lastname"
+    const parts = decodedId.split(/[-\s]+/).filter(p => p.length > 0)
+    if (parts.length >= 1) {
       const firstName = parts[0]
-      const lastName = parts.slice(1).join(' ')
+      const lastName = parts.length > 1 ? parts.slice(1).join(' ') : ''
       
-      const { data: data3 } = await supabase
-        .from('doctor_profiles')
-        .select('user_id')
-        .ilike('first_name', firstName)
-        .ilike('last_name', lastName)
-        .limit(1)
-        .single()
+      const query = lastName 
+        ? supabase
+            .from('doctor_profiles')
+            .select('user_id')
+            .ilike('first_name', firstName)
+            .ilike('last_name', lastName)
+        : supabase
+            .from('doctor_profiles')
+            .select('user_id')
+            .ilike('first_name', firstName)
+      
+      const { data: data3 } = await query.limit(1).single()
 
       if (data3?.user_id) {
         console.log('[Doctor Utils] Found doctor by name:', data3.user_id)
@@ -76,7 +85,7 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
     const { data: data4 } = await supabase
       .from('doctor_profiles')
       .select('user_id')
-      .ilike('first_name', doctorIdOrSlug.replace(/-/g, ' '))
+      .ilike('first_name', decodedId.replace(/[-\s]/g, ' '))
       .limit(1)
       .single()
 
@@ -87,7 +96,7 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
 
     // Fall back to map for mock data
     console.warn('[Doctor Utils] Doctor not found in DB, using mock UUID map')
-    return getDoctorUuid(doctorIdOrSlug)
+    return getDoctorUuid(decodedId)
   } catch (error) {
     console.error('[Doctor Utils] Error in fetchDoctorUuid:', error)
     return getDoctorUuid(doctorIdOrSlug)

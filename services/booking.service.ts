@@ -55,6 +55,9 @@ export async function createBooking(
   error?: string
 }> {
   try {
+    // URL decode doctor_id in case it comes from URL params
+    const decodedDoctorId = decodeURIComponent(bookingData.doctor_id)
+    
     // Upload media files if any
     let mediaUrls: string[] = []
     if (bookingData.mediaFiles && bookingData.mediaFiles.length > 0) {
@@ -62,7 +65,7 @@ export async function createBooking(
     }
 
     // Convert doctor_id (slug) to actual UUID
-    const doctorUuid = await fetchDoctorUuid(bookingData.doctor_id)
+    const doctorUuid = await fetchDoctorUuid(decodedDoctorId)
 
     if (!doctorUuid) {
       return {

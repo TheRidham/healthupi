@@ -34,6 +34,11 @@ export function Step4Contact({ form, set }: Props) {
           placeholder="https://www.mitchellcardiology.com" className={inputCls} />
       </FormField>
 
+      <FormField label="Google Meet Link (for virtual consultations)">
+        <Input type="url" value={form.googleMeetLink} onChange={(e) => set("googleMeetLink", e.target.value)}
+          placeholder="https://meet.google.com/your-link" className={inputCls} />
+      </FormField>
+
       <FormField label="Languages Spoken (press Enter or + to add)">
         <TagInput
           tags={form.languages}
