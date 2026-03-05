@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -21,11 +20,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Header } from "@/components/header";
-import { Phone, Loader2, ShieldCheck, User, Mail, Calendar } from "lucide-react";
-import { sendOtpToPhone, verifyPatientOtp, createPatientAccount } from "@/services/auth.service";
+import {
+  Phone,
+  Loader2,
+  ShieldCheck,
+  User,
+  Mail,
+  Calendar,
+} from "lucide-react";
+import {
+  sendOtpToPhone,
+  verifyPatientOtp,
+  createPatientAccount,
+} from "@/services/auth.service";
 import { loginPatient } from "@/services/auth.service";
 import { useAuth } from "@/lib/auth-context";
-import { formatPhoneForDB } from "@/lib/utils/phone";
+import { auth } from "@/lib/firebase/firebaseClient";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -49,24 +60,88 @@ function PatientSignInContent() {
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  function handleSendOtp() {
-    setError("");
-    setLoading(true);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationRef = useRef<any>(null);
 
-    sendOtpToPhone(phone)
-      .then((result) => {
-        setLoading(false);
-        if (result.success) {
-          setStep("otp");
-        } else {
-          setError(result.error || "Failed to send OTP. Please try again.");
+const sendOtp = async () => {
+  try {
+    setLoading(true);
+    setError("");
+
+    if (phone.length !== 10) {
+      setError("Enter valid phone number");
+      setLoading(false);
+      return;
+    }
+
+    const formattedPhone = `+91${phone}`;
+
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(
+        auth,
+        "recaptcha",
+        {
+          size: "invisible",
         }
-      })
-      .catch((err) => {
-        setLoading(false);
-        setError("An error occurred. Please try again.");
-      });
+      );
+    }
+
+    const confirmation = await signInWithPhoneNumber(
+      auth,
+      formattedPhone,
+      recaptchaRef.current
+    );
+
+    confirmationRef.current = confirmation;
+
+    setStep("otp");
+  } catch (err: any) {
+    setError(err.message || "Failed to send OTP");
+  } finally {
+    setLoading(false);
   }
+};
+
+  const verifyOtp = async () => {
+  try {
+    setLoading(true);
+    setError("");
+
+    const code = otp.join("");
+
+    if (code.length !== 6) {
+      setError("Enter valid OTP");
+      setLoading(false);
+      return;
+    }
+
+    const result = await confirmationRef.current.confirm(code);
+
+    const idToken = await result.user.getIdToken();
+
+    const res = await fetch("/api/firebase-login", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idToken }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+
+    setStep("profile")
+
+  } catch (err: any) {
+    setError(err.message || "OTP verification failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   function handleOtpChange(index: number, value: string) {
     if (value.length > 1) value = value.slice(-1);
@@ -84,59 +159,6 @@ function PatientSignInContent() {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
-  }
-
-  function handleVerifyOtp() {
-    setError("");
-    setLoading(true);
-
-    verifyPatientOtp(phone, otp.join(""))
-      .then((result) => {
-        setLoading(false);
-
-        if (!result.success) {
-          setError(result.error || "Verification failed. Please try again.");
-          return;
-        }
-
-        if (result.isNewUser) {
-          // New user - show profile form
-          setStep("profile");
-        } else if (result.userId && result.profile) {
-          // Existing user - login directly
-          loginPatient(result.userId, phone)
-            .then((loginResult) => {
-
-              if (loginResult.success) {
-                // Update auth context
-                login({
-                  id: result.userId!,
-                  role: "patient",
-                  name: result.profile.name,
-                  email: result.profile.email,
-                  createdAt: new Date(),
-                });
-
-
-                // Redirect
-                setTimeout(() => {
-                  router.push(redirectUrl);
-                }, 500);
-              } else {
-                setError(loginResult.error || "Login failed. Please try again.");
-              }
-            })
-            .catch((err) => {
-              setError("An error occurred during login. Please try again.");
-            });
-        } else {
-          setError("Unexpected error. Please try again.");
-        }
-      })
-      .catch((err) => {
-        setLoading(false);
-        setError("An error occurred. Please try again.");
-      });
   }
 
   function handleProfileSubmit() {
@@ -160,7 +182,9 @@ function PatientSignInContent() {
         setLoading(false);
 
         if (!result.success) {
-          setError(result.error || "Failed to create account. Please try again.");
+          setError(
+            result.error || "Failed to create account. Please try again.",
+          );
           return;
         }
 
@@ -192,9 +216,12 @@ function PatientSignInContent() {
       <div className="flex-1 flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Patient Login / Sign Up</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              Patient Login / Sign Up
+            </CardTitle>
             <CardDescription>
-              {step === "phone" && "Enter your phone number to login or sign up"}
+              {step === "phone" &&
+                "Enter your phone number to login or sign up"}
               {step === "otp" && "Enter OTP sent to your phone"}
               {step === "profile" && "Complete your profile to continue"}
             </CardDescription>
@@ -205,6 +232,7 @@ function PatientSignInContent() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
+                  <div id="recaptcha"></div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">+91</span>
                     <Input
@@ -218,7 +246,11 @@ function PatientSignInContent() {
                   </div>
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button className="w-full" onClick={handleSendOtp} disabled={loading || phone.length < 10}>
+                <Button
+                  className="w-full"
+                  onClick={sendOtp}
+                  disabled={loading || phone.length < 10}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -240,7 +272,15 @@ function PatientSignInContent() {
                   <p className="text-sm text-muted-foreground">
                     OTP sent to <span className="font-medium">+91 {phone}</span>
                   </p>
-                  <Button variant="link" size="sm" onClick={() => { setStep("phone"); setOtp(["", "", "", "", "", ""]); setError(""); }}>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => {
+                      setStep("phone");
+                      setOtp(["", "", "", "", "", ""]);
+                      setError("");
+                    }}
+                  >
                     Change number
                   </Button>
                 </div>
@@ -250,7 +290,9 @@ function PatientSignInContent() {
                     {otp.map((digit, i) => (
                       <Input
                         key={i}
-                        ref={(el) => { otpRefs.current[i] = el; }}
+                        ref={(el) => {
+                          otpRefs.current[i] = el;
+                        }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
@@ -263,11 +305,17 @@ function PatientSignInContent() {
                     ))}
                   </div>
                 </div>
-                {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+                {error && (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   In development mode, any 6-digit code will be accepted
                 </p>
-                <Button className="w-full" onClick={handleVerifyOtp} disabled={loading || otp.join("").length < 6}>
+                <Button
+                  className="w-full"
+                  onClick={verifyOtp}
+                  disabled={loading || otp.join("").length < 6}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -292,29 +340,54 @@ function PatientSignInContent() {
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="name">
+                      Full Name <span className="text-red-500">*</span>
+                    </Label>
                     <div className="flex items-center gap-2">
                       <User className="size-4 text-muted-foreground" />
-                      <Input id="name" placeholder="Enter your name" value={profileName} onChange={(e) => setProfileName(e.target.value)} />
+                      <Input
+                        id="name"
+                        placeholder="Enter your name"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (optional)</Label>
                     <div className="flex items-center gap-2">
                       <Mail className="size-4 text-muted-foreground" />
-                      <Input id="email" type="email" placeholder="your@email.com" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={profileEmail}
+                        onChange={(e) => setProfileEmail(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dob">Date of Birth <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="dob">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </Label>
                     <div className="flex items-center gap-2">
                       <Calendar className="size-4 text-muted-foreground" />
-                      <Input id="dob" type="date" value={profileDob} onChange={(e) => setProfileDob(e.target.value)} />
+                      <Input
+                        id="dob"
+                        type="date"
+                        value={profileDob}
+                        onChange={(e) => setProfileDob(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Gender <span className="text-red-500">*</span></Label>
-                    <Select value={profileGender} onValueChange={setProfileGender}>
+                    <Label>
+                      Gender <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={profileGender}
+                      onValueChange={setProfileGender}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
@@ -327,7 +400,11 @@ function PatientSignInContent() {
                   </div>
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button className="w-full" onClick={handleProfileSubmit} disabled={loading}>
+                <Button
+                  className="w-full"
+                  onClick={handleProfileSubmit}
+                  disabled={loading}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -354,11 +431,13 @@ function PatientSignInContent() {
 
 export default function PatientSignInPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="size-8 animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="size-8 animate-spin" />
+        </div>
+      }
+    >
       <PatientSignInContent />
     </Suspense>
   );
