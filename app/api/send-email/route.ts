@@ -13,8 +13,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing type or payload" }, { status: 400 });
     }
 
-    console.log(type, payload)
-
     const templateFunc = emailTemplates[type as keyof typeof emailTemplates];
 
     if (!templateFunc) {

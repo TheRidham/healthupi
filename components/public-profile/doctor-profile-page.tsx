@@ -70,6 +70,7 @@ interface DoctorData {
   phone?: string
   email?: string
   website?: string
+  googleMeetLink?: string
   languages: string[]
   base_fee?: number
   availability?: string
@@ -423,6 +424,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     address: doctor.address || DOCTOR.address,
     phone: doctor.phone || DOCTOR.phone,
     website: doctor.website || DOCTOR.website,
+    googleMeetLink: doctor.googleMeetLink || undefined,
     rating: doctor.rating || DOCTOR.rating,
     reviewCount: doctor.reviewCount || DOCTOR.reviewCount,
     patientsServed: doctor.patientsServed || DOCTOR.patientsServed,
@@ -537,7 +539,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         date: formattedDate,
         time: timeString,
         mode: appointmentData?.serviceType,
-        meetingLink: `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
+        meetingLink: doctor?.googleMeetLink || `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
         appointmentId: appointmentData.id,
       });
 
@@ -549,7 +551,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         date: formattedDate,
         time: timeString,
         mode: appointmentData?.serviceType,
-        meetingLink: `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
+        meetingLink: doctor?.googleMeetLink || `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`,
         appointmentId: appointmentData.id,
       })
 
@@ -662,7 +664,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
                         key={service.id}
                         className={`py-3 cursor-pointer transition-all hover:shadow-sm ${
                           isActive
-                            ? "border-primary ring-1 ring-primary/20 bg-primary/[0.03]"
+                            ? "border-primary ring-1 ring-primary/20 bg-primary/3"
                             : "hover:border-primary/30"
                         }`}
                         onClick={() => handleSelectService(service)}

@@ -29,6 +29,7 @@ export interface DoctorFormData {
   //Step 3 — Contact (email moved to Step 0)
   phone: string
   website: string
+  googleMeetLink: string
   languages: string[]
 
   //Step 4 — Additional
@@ -68,6 +69,7 @@ export const defaultFormData: DoctorFormData = {
   clinicPhotos: [],
   phone: "",
   website: "",
+  googleMeetLink: "",
   languages: [],
   baseFee: "",
   availability: "offline",
@@ -148,6 +150,7 @@ export async function submitDoctorProfile(form: DoctorFormData, userId: string) 
       phone:               form.phone,
       email:               form.email,
       website:             form.website,
+      google_meet_link:    form.googleMeetLink || null,
       languages:           form.languages,
       base_fee:            form.baseFee ? parseFloat(form.baseFee) : null,
       availability:        form.availability,

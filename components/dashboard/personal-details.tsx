@@ -30,6 +30,7 @@ import {
   X,
   ImagePlus,
   Loader2,
+  Video,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { authFetch } from "@/lib/utils/api"
@@ -52,6 +53,7 @@ interface DoctorInfo {
   phone: string
   email: string
   website: string
+  googleMeetLink: string
   bio: string
   languages: string[]
   consultationFee: string
@@ -74,6 +76,7 @@ const EMPTY_DATA: DoctorInfo = {
   phone: "",
   email: "",
   website: "",
+  googleMeetLink: "",
   bio: "",
   languages: [],
   consultationFee: "0",
@@ -123,6 +126,7 @@ export function PersonalDetails() {
           phone: profile.phone || "",
           email: profile.email || user.email || "",
           website: profile.website || "",
+          googleMeetLink: profile.google_meet_link || "",
           bio: profile.about || "",
           languages: profile.languages || [],
           consultationFee: profile.base_fee?.toString() || "0",
@@ -184,6 +188,7 @@ export function PersonalDetails() {
           phone: editInfo.phone,
           email: editInfo.email,
           website: editInfo.website,
+          google_meet_link: editInfo.googleMeetLink,
           about: editInfo.bio,
           languages: editInfo.languages,
           base_fee: parseInt(editInfo.consultationFee) || 0,
@@ -330,6 +335,58 @@ export function PersonalDetails() {
           <p className="text-sm text-muted-foreground leading-relaxed">
             {info.bio}
           </p>
+        )}
+      </div>
+
+      <div>
+        {/* Google Meet Link */}
+        {isEditing ? (
+          <InfoRow
+            label="Google Meet Link"
+            fieldId="google-meet-link"
+            value={currentData.googleMeetLink}
+            isEditing={isEditing}
+            onChange={(v) => updateField("googleMeetLink", v)}
+            icon={<Video className="size-3 text-muted-foreground" />}
+          />
+        ) : (
+          <>
+            {currentData.googleMeetLink ? (
+              <>
+              </>
+              // <div className="flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-3 py-2">
+              //   <div className="flex items-center gap-2">
+              //     <Video className="size-3.5 text-blue-600 dark:text-blue-400" />
+              //     <span className="text-xs text-muted-foreground font-medium">
+              //       Google Meet Link
+              //     </span>
+              //   </div>
+              //   <a
+              //     href={currentData.googleMeetLink}
+              //     target="_blank"
+              //     rel="noopener noreferrer"
+              //     className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline truncate max-w-[150px]"
+              //     title={currentData.googleMeetLink}
+              //   >
+              //     Join Meeting →
+              //   </a>
+              // </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+                <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                  No Google Meet Link Added
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900"
+                  onClick={startEditing}
+                >
+                  Add Now →
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -618,7 +675,7 @@ function InfoRow({
           id={fieldId}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-7 text-xs max-w-[200px] text-right"
+          className="h-7 text-xs max-w-100 text-right"
         />
       ) : (
         <div className="flex items-center gap-1">
