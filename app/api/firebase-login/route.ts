@@ -18,11 +18,12 @@ export async function POST(req: NextRequest) {
     }
 
     let userId: string;
+    let userExist: boolean = false;
 
     // 1. Check patient_details first
     const { data: patient, error: patientError } = await supabaseAdmin
       .from("patient_details")
-      .select("id")
+      .select("id, name, email")
       .eq("phone", phone)
       .maybeSingle(); // use maybeSingle() instead of single() to avoid errors on no rows
 
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
 
     if (patient) {
       userId = patient.id;
+      userExist = true;
     } else {
       // 2. Check if auth user already exists (avoids duplicate creation error)
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
@@ -55,7 +57,6 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           );
         }
-
         userId = newUser.user.id;
       }
 
@@ -67,8 +68,6 @@ export async function POST(req: NextRequest) {
         .insert({
           id: userId,
           phone,
-          // TODO: pass full_name, age, gender from request body
-          // or alter the schema to make them nullable for initial registration
         });
 
       if (insertError) {
@@ -80,8 +79,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Generate session via magic link
-    //    Note: the user must have an email in auth.users for generateLink to work
+    //Generate session via magic link
+    //Note: the user must have an email in auth.users for generateLink to work
     const emailFromPhone = `${phone.replace("+", "")}@phone.healthupi.local`;
 
     // Ensure the auth user has this email set
@@ -107,7 +106,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const res = NextResponse.json({ success: true });
+    const res = NextResponse.json({ success: true, userExist: userExist, patient: patient});
 
     res.cookies.set("sb-access-token", accessToken, {
       httpOnly: true,

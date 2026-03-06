@@ -35,8 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load patient profile from DB
   const loadPatientProfile = async (userId: string) => {
     try {
-      const profile = await getPatientProfile(userId)
+      const { data: profile, error } = await supabase
+      .from('patient_details')
+      .select('*')
+      .eq('id', userId)
+      .single()
       setPatientProfile(profile)
+      console.log("patient_data; ", profile);
       return profile
     } catch (error) {
       console.error("Error loading patient profile:", error)

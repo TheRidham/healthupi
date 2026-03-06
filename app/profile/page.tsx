@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
@@ -38,6 +37,8 @@ import { updatePatient } from "@/services/patient.service"
 export default function ProfilePage() {
   const { user, patientProfile, isLoading, refreshProfile } = useAuth()
   const router = useRouter()
+
+  console.log("user: " , user);
 
   const [appointments, setAppointments] = useState<any[]>([])
   const [upcoming, setUpcoming] = useState<any[]>([])
@@ -111,6 +112,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="size-8 animate-spin" />
+        <div>loading</div>
       </div>
     )
   }

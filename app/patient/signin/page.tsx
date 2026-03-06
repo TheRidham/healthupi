@@ -28,15 +28,11 @@ import {
   Mail,
   Calendar,
 } from "lucide-react";
-import {
-  sendOtpToPhone,
-  verifyPatientOtp,
-  createPatientAccount,
-} from "@/services/auth.service";
-import { loginPatient } from "@/services/auth.service";
+import { createPatientAccount } from "@/services/auth.service";
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase/firebaseClient";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -63,85 +59,94 @@ function PatientSignInContent() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const confirmationRef = useRef<any>(null);
 
-const sendOtp = async () => {
-  try {
-    setLoading(true);
-    setError("");
+  const sendOtp = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    if (phone.length !== 10) {
-      setError("Enter valid phone number");
-      setLoading(false);
-      return;
-    }
+      if (phone.length !== 10) {
+        setError("Enter valid phone number");
+        setLoading(false);
+        return;
+      }
 
-    const formattedPhone = `+91${phone}`;
+      const formattedPhone = `+91${phone}`;
 
-    if (!recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(
-        auth,
-        "recaptcha",
-        {
+      if (!recaptchaRef.current) {
+        recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha", {
           size: "invisible",
-        }
+        });
+      }
+
+      const confirmation = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        recaptchaRef.current,
       );
+
+      confirmationRef.current = confirmation;
+
+      setStep("otp");
+    } catch (err: any) {
+      setError(err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
     }
-
-    const confirmation = await signInWithPhoneNumber(
-      auth,
-      formattedPhone,
-      recaptchaRef.current
-    );
-
-    confirmationRef.current = confirmation;
-
-    setStep("otp");
-  } catch (err: any) {
-    setError(err.message || "Failed to send OTP");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const verifyOtp = async () => {
-  try {
-    setLoading(true);
-    setError("");
+    try {
+      setLoading(true);
+      setError("");
 
-    const code = otp.join("");
+      const code = otp.join("");
 
-    if (code.length !== 6) {
-      setError("Enter valid OTP");
+      if (code.length !== 6) {
+        setError("Enter valid OTP");
+        setLoading(false);
+        return;
+      }
+
+      const result = await confirmationRef.current.confirm(code);
+
+      const idToken = await result.user.getIdToken();
+
+      const res = await fetch("/api/firebase-login", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
+      if (data.userExist) {
+        console.log("login......")
+        login({
+          id: data.patient.id,
+          role: "patient",
+          name: data.patient.name,
+          email: data.patient.email,
+          createdAt: new Date(),
+        });
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 500);
+      } else {
+        setStep("profile");
+      }
+    } catch (err: any) {
+      setError(err.message || "OTP verification failed");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const result = await confirmationRef.current.confirm(code);
-
-    const idToken = await result.user.getIdToken();
-
-    const res = await fetch("/api/firebase-login", {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ idToken }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Login failed");
-    }
-
-    setStep("profile")
-
-  } catch (err: any) {
-    setError(err.message || "OTP verification failed");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   function handleOtpChange(index: number, value: string) {
     if (value.length > 1) value = value.slice(-1);
@@ -161,7 +166,7 @@ const sendOtp = async () => {
     }
   }
 
-  function handleProfileSubmit() {
+  async function handleProfileSubmit() {
     setError("");
 
     if (!profileName.trim() || !profileDob || !profileGender) {
@@ -171,43 +176,45 @@ const sendOtp = async () => {
 
     setLoading(true);
 
-    createPatientAccount({
-      phone,
-      name: profileName,
-      email: profileEmail || undefined,
-      dateOfBirth: profileDob,
-      gender: profileGender,
-    })
-      .then((result) => {
-        setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("patient_details")
+        .insert([
+          {
+            full_name: profileName,
+            email: profileEmail || null,
+            date_of_birth: profileDob,
+            gender: profileGender,
+          },
+        ])
+        .select()
+        .single();
 
-        if (!result.success) {
-          setError(
-            result.error || "Failed to create account. Please try again.",
-          );
-          return;
-        }
+      if (error) {
+        throw error;
+      }
 
-        if (result.userId) {
-          // Login the new user
-          login({
-            id: result.userId,
-            role: "patient",
-            name: result.profile?.name || profileName,
-            email: result.profile?.email || profileEmail,
-            createdAt: new Date(),
-          });
+      console.log("Inserted user:", data);
 
-          // Redirect
-          setTimeout(() => {
-            router.push(redirectUrl);
-          }, 500);
-        }
-      })
-      .catch((err) => {
-        setLoading(false);
-        setError("An error occurred. Please try again.");
+      // login user
+      login({
+        id: data.id,
+        role: "patient",
+        name: data.name,
+        email: data.email,
+        createdAt: new Date(),
       });
+
+      // redirect
+      setTimeout(() => {
+        router.push(redirectUrl);
+      }, 500);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

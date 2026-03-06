@@ -46,12 +46,6 @@ export async function verifyPatientOtp(
   // Format phone for DB
   const formattedPhone = formatPhoneForDB(phone.replace(/\D/g, ''))
 
-  // Verify OTP
-  const verification = verifyOtp(formattedPhone, otp)
-
-  if (!verification.valid) {
-    return { success: false, isNewUser: false, error: verification.message }
-  }
 
   // Check if patient exists (use anon client - RLS now allows it)
   const { data: existingPatient, error } = await supabase
@@ -64,6 +58,8 @@ export async function verifyPatientOtp(
     console.error('Error checking patient existence:', error)
     return { success: false, isNewUser: false, error: 'Failed to verify OTP. Please try again.' }
   }
+
+  console.log("existing Patient: ", existingPatient);
 
   if (existingPatient) {
     // Existing user - return patient data
