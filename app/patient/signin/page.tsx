@@ -31,8 +31,9 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase/firebaseClient";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { supabase } from "@/lib/supabase";
 import { upsertPatientProfile } from "@/services/patient.auth.service";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabaseClient } from "@/lib/supabase-client";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -93,8 +94,6 @@ function PatientSignInContent() {
       setLoading(false);
     }
   };
-
-  // const verifyOtp = async () => {
   //   try {
   //     setLoading(true);
   //     setError("");
@@ -185,7 +184,7 @@ function PatientSignInContent() {
       // 3. Tell the client-side Supabase SDK about the session so
       //    supabase.auth.getUser() works in client components too.
       //    The tokens are already in cookies for server-side auth.
-      await supabase.auth.setSession({
+      await supabaseClient.auth.setSession({
         access_token: data.accessToken,
         refresh_token: data.refreshToken,
       });
@@ -237,7 +236,7 @@ function PatientSignInContent() {
       const {
         data: { user },
         error: sessionError,
-      } = await supabase.auth.getUser();
+      } = await supabaseClient.auth.getUser();
 
       console.log("data while form submit: ", user);
 
