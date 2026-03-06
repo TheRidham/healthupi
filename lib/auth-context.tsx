@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error loading patient profile:", error)
         return null
       }
+      console.log("patient profile", profile);
       setPatientProfile(profile)
       return profile
     } catch (error) {

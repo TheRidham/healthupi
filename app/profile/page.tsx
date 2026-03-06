@@ -38,6 +38,8 @@ export default function ProfilePage() {
   const { user, patientProfile, isLoading, refreshProfile } = useAuth()
   const router = useRouter()
 
+  console.log("paitent Profile: ", patientProfile);
+
   console.log("user: " , user);
 
   const [appointments, setAppointments] = useState<any[]>([])
@@ -113,6 +115,7 @@ export default function ProfilePage() {
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="size-8 animate-spin" />
         <div>loading</div>
+        <div>is loading...</div>
       </div>
     )
   }
@@ -140,6 +143,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="size-8 animate-spin" />
+        <div>{JSON.stringify(patientProfile)}</div>
       </div>
     )
   }

@@ -191,7 +191,17 @@ function PatientSignInContent() {
 
       // 4. Navigate — server and client are both authenticated
       if (data.userExist) {
+        login({
+        id: data.profile.user_id,
+        role: "patient",
+        name: data.profile.name,
+        email: data.profile.email ?? undefined,
+        createdAt: new Date(),
+        });
+
+      setTimeout(() => {
         router.push(redirectUrl);
+      }, 500);
       } else {
         setStep("profile");
       }
