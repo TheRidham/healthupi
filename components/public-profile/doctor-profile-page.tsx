@@ -43,6 +43,7 @@ import { BookingModal } from "./booking-modal"
 import { PaymentSuccess } from "./payment-success"
 import { Header } from "@/components/header"
 import { useAuth } from "@/lib/auth-context"
+import { useBooking } from "@/providers/BookingProvider"
 import { sendEmail } from "@/lib/email/emailHelper"
 import { toast } from "sonner"
 
@@ -252,6 +253,7 @@ type ViewMode = "main" | "booking" | "followup" | "success"
 export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { setPendingBooking } = useBooking()
   const today = startOfToday()
 
   // Main view state
@@ -363,13 +365,13 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
     }
   }
 
-  // Check localStorage for pending booking after login
+  // Restore pending booking after login
   useEffect(() => {
-    const pendingBooking = localStorage.getItem("pending_booking")
+    const { pendingBooking, clearPendingBooking } = useBooking()
 
     if (pendingBooking && user && user.role === "patient") {
       try {
-        const booking = JSON.parse(pendingBooking)
+        const booking = pendingBooking
 
         // Reconstruct service from stored data
         const service = {
@@ -400,10 +402,10 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         // Small delay to ensure state is updated before opening modal
         setTimeout(() => {
           setShowBookingModal(true)
-          localStorage.removeItem("pending_booking")
+          clearPendingBooking()
         }, 100)
       } catch (error) {
-        localStorage.removeItem("pending_booking")
+        console.error('Error restoring pending booking:', error)
       }
     }
   }, [user])
@@ -503,11 +505,11 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         timeSlot: selectedSlot.time,
         timeSlotEnd: selectedSlot.endTime,
         timeSlotDuration: selectedSlot.duration,
-        doctorId: doctorId
+        doctorId: doctorId as string
       }
 
       console.log('[Doctor Profile] Storing pending booking:', bookingData)
-      localStorage.setItem("pending_booking", JSON.stringify(bookingData))
+      setPendingBooking(bookingData)
 
       // Redirect to patient login with return URL
       router.push(`/patient/signin?redirect=/doctor/${doctorId}`)

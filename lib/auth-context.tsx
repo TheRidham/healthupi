@@ -2,8 +2,6 @@
 
 import { useState, useEffect, createContext, useContext } from "react"
 import { supabase } from "@/lib/supabase"
-import { getPatientSession } from "@/services/auth.service"
-import { getPatientProfile } from "@/services/patient.service"
 
 type UserRole = "doctor" | "patient" | null
 
@@ -14,6 +12,7 @@ interface AuthUser {
   role: UserRole
   avatar?: string
   createdAt?: Date
+  designation?: string
 }
 
 interface AuthContextType {
@@ -36,12 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadPatientProfile = async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
-      .from('patient_details')
-      .select('*')
-      .eq('id', userId)
-      .single()
+        .from('patient_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+
+      if (error) {
+        console.error("Error loading patient profile:", error)
+        return null
+      }
+
       setPatientProfile(profile)
-      console.log("patient_data; ", profile);
       return profile
     } catch (error) {
       console.error("Error loading patient profile:", error)
@@ -59,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Check if this is a doctor by looking up doctor_profiles
           const { data: doctorProfile } = await supabase
             .from('doctor_profiles')
-            .select('user_id, email, first_name, last_name')
+            .select('user_id, email, first_name, last_name, photo_url, designation')
             .eq('user_id', session.user.id)
             .single()
 
@@ -68,9 +72,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData: AuthUser = {
               id: session.user.id,
               role: "doctor",
+              avatar: doctorProfile?.photo_url,
               name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
               email: doctorProfile.email,
               createdAt: new Date(),
+              designation: doctorProfile?.designation,
             }
             setUser(userData)
             setIsLoading(false)
@@ -78,25 +84,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Step 2: Check patient session (for phone-based auth)
-        const patientSession = getPatientSession()
+        // Step 2: Check if this is a patient (by looking up patient_profiles)
+        // Supabase session already exists at this point, so just check if they're in patient_profiles
+        if (session?.user?.id) {
+          const { data: patientProfile } = await supabase
+            .from('patient_profiles')
+            .select('user_id, name, email, photo_url')
+            .eq('user_id', session.user.id)
+            .single()
 
-        if (patientSession?.userId && patientSession?.role === 'patient') {
-          // Load patient profile first
-          const profile = await loadPatientProfile(patientSession.userId)
-
-          // User is a patient
-          const userData: AuthUser = {
-            id: patientSession.userId,
-            role: "patient",
-            name: profile?.name || "", // Use profile name
-            email: profile?.email || undefined,
-            createdAt: new Date(),
+          if (patientProfile) {
+            // User is a patient
+            const profile = await loadPatientProfile(session.user.id)
+            const userData: AuthUser = {
+              id: session.user.id,
+              role: "patient",
+              avatar: profile?.photo_url,
+              name: profile?.name || "",
+              email: profile?.email || undefined,
+              createdAt: new Date(),
+            }
+            setUser(userData)
+            setIsLoading(false)
+            return
           }
-          setUser(userData)
-
-          setIsLoading(false)
-          return
         }
 
         // Step 3: No session found
@@ -134,7 +145,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clear all auth state
         setUser(null)
         setPatientProfile(null)
-        localStorage.removeItem("healthupi_user")
       }
     })
 
@@ -145,9 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (userData: AuthUser) => {
     setUser(userData)
-
-    // Save to localStorage for persistence
-    localStorage.setItem("healthupi_user", JSON.stringify(userData))
 
     // If patient, load profile
     if (userData.role === 'patient') {
@@ -166,8 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear all state
     setUser(null)
     setPatientProfile(null)
-    localStorage.removeItem("healthupi_user")
-    localStorage.removeItem("patient_session")
   }
 
   const refreshProfile = async () => {

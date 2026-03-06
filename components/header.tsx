@@ -31,11 +31,12 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, logout } = useAuth()
 
+  
   const isDashboardPage = pathname.startsWith("/dashboard")
   const isProfilePage = pathname === "/profile"
   const isDoctorDashboard = pathname.startsWith("/dashboard/")
   const isHome = pathname === "/"
-
+  
   const handleLogout = async () => {
     await logout()
     router.push("/")
@@ -97,7 +98,7 @@ export function Header() {
               </div>
             )}
 
-            {user ? (
+            {user?.id ? (
               <div className="flex items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -118,11 +119,11 @@ export function Header() {
                       <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="hidden md:flex flex-col">
-                      <span className="text-xs font-medium text-foreground leading-none">
+                      <span className="text-xs font-medium text-foreground leading-none capitalize">
                         {displayName}
                       </span>
-                      <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                        {isDoctorDashboard ? "Cardiologist" : "Patient"}
+                      <span className="text-[10px] text-muted-foreground leading-none mt-0.5 capitalize">
+                        {isDoctorDashboard ? user?.designation : "Patient"}
                       </span>
                     </div>
                     <Button variant="ghost" size="icon-sm" onClick={handleLogout} aria-label="Logout">
@@ -130,7 +131,7 @@ export function Header() {
                     </Button>
                   </div>
                 ) : (
-                  <Button variant="ghost" size="sm" className="hidden sm:flex gap-2 hover:bg-accent" onClick={() => router.push("/profile")}>
+                  <Button variant="ghost" size="sm" className="hidden sm:flex gap-2 hover:bg-accent" onClick={() => router.push(`/dashboard/${user.id}`)}>
                     <User className="size-4" />
                     <span>{user.name}</span>
                   </Button>

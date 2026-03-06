@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react"
+import { useState, FormEvent } from "react"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,8 +26,7 @@ export default function SignInForm() {
   const router = useRouter();
   const { login } = useAuth();
 
-  //@ts-ignore
-  const handleSignIn = async (e) => {
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError("")

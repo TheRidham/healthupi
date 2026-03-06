@@ -198,14 +198,8 @@ export async function loginPatient(
     // Note: This is a workaround. In production with phone auth, use supabase.auth.signInWithOtp()
     const formattedPhone = formatPhoneForDB(phone.replace(/\D/g, ''))
 
-    // Store patient session info in localStorage for auth-context to pick up
-    const sessionData = {
-      userId,
-      phone: formattedPhone,
-      role: 'patient',
-    }
-    localStorage.setItem('patient_session', JSON.stringify(sessionData))
-
+    // Supabase session is automatically maintained after signup
+    // No need to store in localStorage
     return { success: true }
   } catch (error: any) {
     console.error('Error in loginPatient:', error)
@@ -220,32 +214,12 @@ export async function logoutPatient(): Promise<void> {
   try {
     // Clear Supabase session
     await supabase.auth.signOut()
-
-    // Clear patient session data
-    localStorage.removeItem('patient_session')
-
-    // Clear any pending booking
-    localStorage.removeItem('pending_booking')
   } catch (error) {
     console.error('Error logging out:', error)
   }
 }
 
-/**
- * Get current patient session (for auth-context to use)
- */
-export function getPatientSession(): { userId?: string; phone?: string; role?: string } | null {
-  try {
-    const sessionData = localStorage.getItem('patient_session')
-    if (sessionData) {
-      return JSON.parse(sessionData)
-    }
-    return null
-  } catch (error) {
-    console.error('Error getting patient session:', error)
-    return null
-  }
-}
+
 
 /**
  * Update patient profile

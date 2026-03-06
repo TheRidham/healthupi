@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
+import { BookingProvider } from "@/providers/BookingProvider";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({
@@ -31,7 +32,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <BookingProvider>
+              {children}
+            </BookingProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
