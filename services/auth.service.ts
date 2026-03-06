@@ -1,82 +1,12 @@
 import { supabase } from '@/lib/supabase'
-import { storeOtp, verifyOtp, clearOtp } from '@/lib/utils/otp'
 import { formatPhoneForDB, validateIndianPhone } from '@/lib/utils/phone'
 import type { PatientProfileInput } from '@/types'
-import { config } from '@/lib/config'
 
-// Log if service role key is available
-const serviceRoleKeyAvailable = !!config.supabase.supabaseServiceRoleKey
 
 // ============================================================================
-// AUTH SERVICE - PHONE AUTHENTICATION WITH SUPABASE (STUB FOR DEVELOPMENT)
+// AUTH SERVICE - PHONE AUTHENTICATION WITH SUPABASE
 // ============================================================================
 
-/**
- * Send OTP to phone number (STUB - accepts any phone)
- * In production, integrate with Twilio, Firebase, or SMS API
- */
-export async function sendOtpToPhone(phone: string): Promise<{ success: boolean; error?: string }> {
-  // Validate phone format
-  const cleanedPhone = phone.replace(/\D/g, '')
-  if (!validateIndianPhone(cleanedPhone)) {
-    return { success: false, error: 'Please enter a valid Indian mobile number' }
-  }
-
-  // Format phone for storage
-  const formattedPhone = formatPhoneForDB(cleanedPhone)
-
-  try {
-    // Generate and store OTP
-    const generatedOtp = storeOtp(formattedPhone)
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error sending OTP:', error)
-    return { success: false, error: 'Failed to send OTP. Please try again.' }
-  }
-}
-
-/**
- * Verify OTP and check/create patient account
- */
-export async function verifyPatientOtp(
-  phone: string,
-  otp: string
-): Promise<{ success: boolean; isNewUser: boolean; userId?: string; profile?: any; error?: string }> {
-  // Format phone for DB
-  const formattedPhone = formatPhoneForDB(phone.replace(/\D/g, ''))
-
-
-  // Check if patient exists (use anon client - RLS now allows it)
-  const { data: existingPatient, error } = await supabase
-    .from('patient_profiles')
-    .select('user_id, name, email, phone, date_of_birth, gender')
-    .eq('phone', formattedPhone)
-    .single()
-
-  if (error && error.code !== 'PGRST116') {
-    console.error('Error checking patient existence:', error)
-    return { success: false, isNewUser: false, error: 'Failed to verify OTP. Please try again.' }
-  }
-
-  console.log("existing Patient: ", existingPatient);
-
-  if (existingPatient) {
-    // Existing user - return patient data
-    return {
-      success: true,
-      isNewUser: false,
-      userId: existingPatient.user_id,
-      profile: existingPatient,
-    }
-  }
-
-  // New user - return flag to show profile form
-  return {
-    success: true,
-    isNewUser: true,
-  }
-}
 
 /**
  * Create patient account (auth.user + patient_profile)
@@ -161,7 +91,7 @@ export async function createPatientAccount(data: {
     }
 
     // Clear OTP after successful account creation
-    clearOtp(formattedPhone)
+    // clearOtp(formattedPhone)
 
     return {
       success: true,

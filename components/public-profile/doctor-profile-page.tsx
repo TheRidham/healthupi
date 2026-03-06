@@ -253,7 +253,7 @@ type ViewMode = "main" | "booking" | "followup" | "success"
 export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const router = useRouter()
   const { user } = useAuth()
-  const { setPendingBooking } = useBooking()
+  const { setPendingBooking, pendingBooking, clearPendingBooking } = useBooking()
   const today = startOfToday()
 
   // Main view state
@@ -367,8 +367,6 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
   // Restore pending booking after login
   useEffect(() => {
-    const { pendingBooking, clearPendingBooking } = useBooking()
-
     if (pendingBooking && user && user.role === "patient") {
       try {
         const booking = pendingBooking

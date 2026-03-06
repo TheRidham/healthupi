@@ -28,11 +28,11 @@ import {
   Mail,
   Calendar,
 } from "lucide-react";
-import { createPatientAccount } from "@/services/auth.service";
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/firebase/firebaseClient";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { supabase } from "@/lib/supabase";
+import { upsertPatientProfile } from "@/services/patient.auth.service";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -94,59 +94,115 @@ function PatientSignInContent() {
     }
   };
 
-  const verifyOtp = async () => {
+  // const verifyOtp = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setError("");
+
+  //     const code = otp.join("");
+
+  //     if (code.length !== 6) {
+  //       setError("Enter valid OTP");
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     const result = await confirmationRef.current.confirm(code);
+
+  //     const idToken = await result.user.getIdToken();
+
+  //     console.log("idToken:",idToken)
+
+  //     const res = await fetch("/api/firebase-login", {
+  //       method: "POST",
+  //       credentials: "include",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({ idToken }),
+  //     });
+
+  //     const data = await res.json();
+
+  //     if (!res.ok) {
+  //       throw new Error(data.error || "Login failed");
+  //     }
+
+  //     console.log("userData: ", data);
+
+  //     if (data.userExist) {
+  //       console.log("login......");
+  //       login({
+  //         role: "patient",
+  //         id: data.profile.user_id,
+  //         name: data.profile.name,
+  //         email: data.profile.email,
+  //         createdAt: new Date(),
+  //       });
+  //       setTimeout(() => {
+  //         router.push(redirectUrl);
+  //       }, 500);
+  //     } else {
+  //       setStep("profile");
+  //     }
+  //   } catch (err: any) {
+  //     setError(err.message || "OTP verification failed");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  async function verifyOtp() {
+    setError("");
+    setLoading(true);
+
     try {
-      setLoading(true);
-      setError("");
-
       const code = otp.join("");
-
       if (code.length !== 6) {
         setError("Enter valid OTP");
         setLoading(false);
         return;
       }
+      // 1. Confirm OTP with Firebase
+      const credential = await confirmationRef.current.confirm(code);
+      const idToken = await credential.user.getIdToken();
 
-      const result = await confirmationRef.current.confirm(code);
-
-      const idToken = await result.user.getIdToken();
-
+      // 2. Exchange Firebase token → Supabase user + profile
       const res = await fetch("/api/firebase-login", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+      console.log("firebase data: ", data);
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error ?? "Login failed");
       }
 
+      // 3. Tell the client-side Supabase SDK about the session so
+      //    supabase.auth.getUser() works in client components too.
+      //    The tokens are already in cookies for server-side auth.
+      await supabase.auth.setSession({
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken,
+      });
+
+      // 4. Navigate — server and client are both authenticated
       if (data.userExist) {
-        console.log("login......")
-        login({
-          id: data.patient.id,
-          role: "patient",
-          name: data.patient.name,
-          email: data.patient.email,
-          createdAt: new Date(),
-        });
-        setTimeout(() => {
-          router.push(redirectUrl);
-        }, 500);
+        router.push(redirectUrl);
       } else {
         setStep("profile");
       }
     } catch (err: any) {
-      setError(err.message || "OTP verification failed");
+      console.error("OTP verify error:", err);
+      setError(err.message || "Verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   function handleOtpChange(index: number, value: string) {
     if (value.length > 1) value = value.slice(-1);
@@ -177,35 +233,39 @@ function PatientSignInContent() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("patient_details")
-        .insert([
-          {
-            full_name: profileName,
-            email: profileEmail || null,
-            date_of_birth: profileDob,
-            gender: profileGender,
-          },
-        ])
-        .select()
-        .single();
+      // Get the authenticated user's ID from the current session
+      const {
+        data: { user },
+        error: sessionError,
+      } = await supabase.auth.getUser();
 
-      if (error) {
-        throw error;
+      console.log("data while form submit: ", user);
+
+      if (sessionError || !user) {
+        setError("Session expired. Please log in again.");
+        return;
       }
 
-      console.log("Inserted user:", data);
+      const { success, profile, error } = await upsertPatientProfile(user.id, {
+        name: profileName.trim(),
+        email: profileEmail || undefined,
+        date_of_birth: profileDob,
+        gender: profileGender,
+      });
 
-      // login user
+      if (!success || error) {
+        throw new Error(error ?? "Failed to update profile");
+      }
+
+      // Log in the user with the now-complete profile
       login({
-        id: data.id,
+        id: user.id,
         role: "patient",
-        name: data.name,
-        email: data.email,
+        name: profile!.name,
+        email: profile!.email ?? undefined,
         createdAt: new Date(),
       });
 
-      // redirect
       setTimeout(() => {
         router.push(redirectUrl);
       }, 500);

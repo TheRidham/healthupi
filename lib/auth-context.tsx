@@ -18,9 +18,9 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null
   patientProfile: any | null
+  isLoading: boolean
   login: (user: AuthUser) => void
   logout: () => Promise<void>
-  isLoading: boolean
   refreshProfile: () => Promise<void>
 }
 
@@ -44,7 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error loading patient profile:", error)
         return null
       }
-
       setPatientProfile(profile)
       return profile
     } catch (error) {
@@ -92,6 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select('user_id, name, email, photo_url')
             .eq('user_id', session.user.id)
             .single()
+
+          console.log("setUserData: ", patientProfile);
 
           if (patientProfile) {
             // User is a patient
