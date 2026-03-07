@@ -1,4 +1,4 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+import { redirect } from "next/navigation"
 
 interface DashboardPageProps {
   params: Promise<{
@@ -8,6 +8,6 @@ interface DashboardPageProps {
 
 export default async function DoctorDashboardPage({ params }: DashboardPageProps) {
   const { id } = await params
-  // TODO: Fetch doctor by ID and pass to shell
-  return <DashboardShell doctorId={id} />
+  // Redirect to services as the default profile tab
+  redirect(`/dashboard/${id}/services`)
 }

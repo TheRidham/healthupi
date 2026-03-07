@@ -38,11 +38,19 @@ interface AppointmentData {
 export function CallsSection() {
   const pathname = usePathname()
   const router = useRouter()
-  const doctorId = pathname?.split('/')[2] || ''
+  const [doctorId, setDoctorId] = useState('')
   
   const [todayAppointments, setTodayAppointments] = useState<AppointmentData[]>([])
   const [upcomingAppointments, setUpcomingAppointments] = useState<AppointmentData[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Extract doctorId from pathname on mount
+  useEffect(() => {
+    if (pathname) {
+      const id = pathname.split('/')[2] || ''
+      setDoctorId(id)
+    }
+  }, [pathname])
 
   useEffect(() => {
     const fetchAppointments = async () => {

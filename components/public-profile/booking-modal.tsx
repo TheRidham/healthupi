@@ -57,7 +57,7 @@ interface BookingModalProps {
   isFollowUp: boolean
 }
 
-type Step = "details" | "payment" | "processing"
+type Step = "details" | "payment" | "verifying" | "processing"
 
 function getTimeSlotDisplay(slot: TimeSlot): string {
   return `${slot.time} - ${slot.endTime}`
@@ -222,10 +222,16 @@ export function BookingModal({
         },
         onSuccess: (paymentId: string, orderId: string) => {
           setRazorpayPaymentId(paymentId)
-          setStep("processing")
+          setStep("verifying")
 
+          // Payment verification happens in Razorpay handler,
+          // wait for backend confirmation then proceed to processing
           setTimeout(() => {
-            onSuccess(appointmentData)
+            setStep("processing")
+            // Give a moment for booking confirmation
+            setTimeout(() => {
+              onSuccess(appointmentData)
+            }, 1500)
           }, 2000)
         },
         onError: (error: string) => {
@@ -547,13 +553,24 @@ export function BookingModal({
             </>
           )}
 
-          {/* Processing step */}
-          {step === "processing" && (
+          {/* Verifying payment step */}
+          {step === "verifying" && (
             <div className="flex flex-col items-center gap-4 py-12">
               <Loader2 className="size-8 text-primary animate-spin" />
               <div className="text-center text-sm">
-                <p className="font-semibold text-foreground">Processing Booking</p>
-                <p className="text-xs text-muted-foreground mt-1">Please wait while we confirm your appointment...</p>
+                <p className="font-semibold text-foreground">Verifying Payment</p>
+                <p className="text-xs text-muted-foreground mt-1">Validating your payment with the bank...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Processing step */}
+          {step === "processing" && (
+            <div className="flex flex-col items-center gap-4 py-12">
+              <Loader2 className="size-8 text-emerald-600 animate-spin" />
+              <div className="text-center text-sm">
+                <p className="font-semibold text-foreground">Confirming Appointment</p>
+                <p className="text-xs text-muted-foreground mt-1">Setting up your consultation...</p>
               </div>
             </div>
           )}

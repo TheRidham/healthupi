@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -85,7 +85,7 @@ const EMPTY_DATA: DoctorInfo = {
 export function PersonalDetails() {
   const { user } = useAuth()
   const pathname = usePathname()
-  const doctorId = pathname?.split('/')[2] || user?.id || ''
+  const [doctorId, setDoctorId] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [info, setInfo] = useState<DoctorInfo>(EMPTY_DATA)
   const [editInfo, setEditInfo] = useState<DoctorInfo>(EMPTY_DATA)
@@ -94,11 +94,27 @@ export function PersonalDetails() {
   const [error, setError] = useState<string | null>(null)
   const [galleryImages, setGalleryImages] = useState<Array<{ src: string; alt: string }>>([])
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  
+  // Ref to prevent duplicate requests in Strict Mode
+  const requestAbortRef = useRef<AbortController | null>(null)
 
-  // Fetch doctor profile from Supabase
+  // Extract doctorId from pathname on mount
   useEffect(() => {
+    if (pathname) {
+      const id = pathname.split('/')[2] || ''
+      setDoctorId(id)
+    }
+  }, [pathname])
+
+  // Fetch doctor profile from Supabase with deduplication
+  useEffect(() => {
+    // Cancel previous request if still pending
+    if (requestAbortRef.current) {
+      requestAbortRef.current.abort()
+    }
+
     async function loadDoctorProfile() {
-      if (!user?.id) {
+      if (!doctorId) {
         setIsLoading(false)
         return
       }
@@ -106,58 +122,76 @@ export function PersonalDetails() {
       try {
         setIsLoading(true)
         setError(null)
-        const profile = await fetchDoctorProfile(user.id)
         
-        // Map Supabase data to component format
-        const doctorInfo: DoctorInfo = {
-          name: `${profile.title || "Dr."} ${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
-          title: profile.designation || "Senior Consultant",
-          specialization: profile.specialization || "General Medicine",
-          subSpecialization: profile.sub_specialization || "",
-          experience: profile.experience_years ? `${profile.experience_years} years` : "",
-          qualifications: profile.qualifications || [],
-          registrationNumber: profile.registration_no || "",
-          clinicName: profile.clinic_name || "",
-          hospitalAffiliation: profile.hospital || "",
-          address: profile.address || "",
-          city: profile.city || "",
-          state: profile.state || "",
-          zipCode: profile.zip || "",
-          phone: profile.phone || "",
-          email: profile.email || user.email || "",
-          website: profile.website || "",
-          googleMeetLink: profile.google_meet_link || "",
-          bio: profile.about || "",
-          languages: profile.languages || [],
-          consultationFee: profile.base_fee?.toString() || "0",
-        }
+        const profile = await fetchDoctorProfile(doctorId)
+        
+        // Only update state if request wasn't aborted
+        if (!requestAbortRef.current?.signal.aborted) {
+          // Map Supabase data to component format
+          const doctorInfo: DoctorInfo = {
+            name: `${profile.title || "Dr."} ${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
+            title: profile.designation || "Senior Consultant",
+            specialization: profile.specialization || "General Medicine",
+            subSpecialization: profile.sub_specialization || "",
+            experience: profile.experience_years ? `${profile.experience_years} years` : "",
+            qualifications: profile.qualifications || [],
+            registrationNumber: profile.registration_no || "",
+            clinicName: profile.clinic_name || "",
+            hospitalAffiliation: profile.hospital || "",
+            address: profile.address || "",
+            city: profile.city || "",
+            state: profile.state || "",
+            zipCode: profile.zip || "",
+            phone: profile.phone || "",
+            email: profile.email || user?.email || "",
+            website: profile.website || "",
+            googleMeetLink: profile.google_meet_link || "",
+            bio: profile.about || "",
+            languages: profile.languages || [],
+            consultationFee: profile.base_fee?.toString() || "0",
+          }
 
-        setInfo(doctorInfo)
-        setEditInfo(doctorInfo)
+          setInfo(doctorInfo)
+          setEditInfo(doctorInfo)
 
-        // Set profile photo
-        if (profile.photo_url) {
-          setPhotoUrl(profile.photo_url)
-        }
+          // Set profile photo
+          if (profile.photo_url) {
+            setPhotoUrl(profile.photo_url)
+          }
 
-        // Set gallery images from clinic photos
-        if (profile.clinic_photo_urls && profile.clinic_photo_urls.length > 0) {
-          const clinicImages = profile.clinic_photo_urls.map((url: string, idx: number) => ({
-            src: url,
-            alt: `Clinic photo ${idx + 1}`
-          }))
-          setGalleryImages(clinicImages)
+          // Set gallery images from clinic photos
+          if (profile.clinic_photo_urls && profile.clinic_photo_urls.length > 0) {
+            const clinicImages = profile.clinic_photo_urls.map((url: string, idx: number) => ({
+              src: url,
+              alt: `Clinic photo ${idx + 1}`
+            }))
+            setGalleryImages(clinicImages)
+          }
+          
+          setIsLoading(false)
         }
-      } catch (err) {
-        console.error("Error loading doctor profile:", err)
-        setError("Failed to load profile data")
-      } finally {
+      } catch (err: any) {
+        // Ignore abort errors
+        if (err?.name === 'AbortError') {
+          return
+        }
+        console.error("Error loading doctor profile:", err?.message || err)
+        setError("Failed to load profile data. Please try again.")
         setIsLoading(false)
       }
     }
 
+    // Create new abort controller for this request
+    requestAbortRef.current = new AbortController()
     loadDoctorProfile()
-  }, [user?.id, user?.email])
+
+    // Cleanup: abort request if component unmounts
+    return () => {
+      if (requestAbortRef.current) {
+        requestAbortRef.current.abort()
+      }
+    }
+  }, [doctorId, user?.email])
 
   const startEditing = () => {
     setEditInfo({ ...info })

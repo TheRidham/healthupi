@@ -42,7 +42,7 @@ export function DashboardShell({ doctorId = "andrew-mitchell" }: DashboardShellP
   const [profileTab, setProfileTab] = useState<string>("services")
   const [copied, setCopied] = useState(false)
 
-  const profileUrl = `healthupi.app/dr/${doctorId}`
+  const profileUrl = `healthupi.vercel.app/dashboard/${doctorId}`
 
   function handleCopyLink() {
     navigator.clipboard.writeText(`https://${profileUrl}`)
