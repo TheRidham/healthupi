@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin"
+import { supabaseClient } from "@/lib/supabase-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,154 +60,6 @@ export function formatPhoneForDB(raw: string): string {
   return digits.startsWith('+') ? digits : `+${digits}`
 }
 
-export function syntheticEmailFromPhone(phone: string): string {
-  return `${phone.replace('+', '')}@phone.healthupi.local`
-}
-
-// Stable password derived from userId — never changes, never exposed to user
-function syntheticPassword(userId: string): string {
-  return `pat_${userId.replace(/-/g, '')}_hup`
-}
-
-// ─── Core: find-or-create auth user + patient_profiles row ───────────────────
-
-/**
- * Given a verified E.164 phone number:
- *  1. Returns the existing profile if the user already exists
- *  2. Otherwise creates a Supabase auth user + a minimal patient_profiles row
- *
- * NOTE: `name` is NOT NULL in the schema. We insert a placeholder here
- * so the row is valid. It must be replaced during onboarding.
- * Alternatively, ALTER the column to allow NULLs:
- *   ALTER TABLE public.patient_profiles ALTER COLUMN name DROP NOT NULL;
- */
-export async function findOrCreatePatientByPhone(phone: string): Promise<AuthResult> {
-  try {
-    // 1. Existing profile?
-    const { data: existingProfile, error: lookupError } = await supabaseAdmin
-      .from('patient_profiles')
-      .select('*')
-      .eq('phone', phone)
-      .maybeSingle()
-
-    if (lookupError) {
-      console.error('Profile lookup error:', lookupError)
-      return { success: false, error: lookupError.message }
-    }
-
-    if (existingProfile) {
-      return { success: true, userId: existingProfile.user_id, userExist: true, profile: existingProfile }
-    }
-
-    console.log("phone: ", phone);
-
-    // 2. New user — find or create auth user
-    const userId = await findOrCreateAuthUser(phone)
-    if (!userId) {
-      return { success: false, error: 'Failed to create auth user' }
-    }
-
-    // 3. Insert minimal profile row
-    //    • name: '' is a valid placeholder — replace with real name in onboarding step 1
-    //    • allergies / medical_conditions / medications default to [] per schema
-    const { data: newProfile, error: insertError } = await supabaseAdmin
-      .from('patient_profiles')
-      .insert({
-        user_id: userId,
-        phone,
-        name: '',   // placeholder — collected in onboarding step 1
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      console.error('Profile insert error:', insertError)
-      await supabaseAdmin.auth.admin.deleteUser(userId) // rollback orphaned auth user
-      return { success: false, error: insertError.message }
-    }
-
-    return { success: true, userId, userExist: false, profile: newProfile }
-  } catch (err: any) {
-    console.error('findOrCreatePatientByPhone error:', err)
-    return { success: false, error: err?.message ?? 'Unexpected error' }
-  }
-}
-
-/**
- * Finds an existing Supabase auth user by phone or creates a new one.
- * Returns the user UUID, or null on failure.
- *
- * ⚠️  listUsers() is O(n). For large user bases, replace with:
- *   supabaseAdmin.rpc('get_user_id_by_phone', { phone })
- *   backed by a Postgres function querying auth.users directly.
- */
-async function findOrCreateAuthUser(phone: string): Promise<string | null> {
-  const { data: list } = await supabaseAdmin.auth.admin.listUsers()
-  const existing = list?.users?.find((u) => u.phone === phone)
-  console.log("exisiting auth: ", existing);
-  if (existing) return existing.id
-
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    phone,
-    phone_confirm: true,
-  })
-
-  console.log("auth data: ", data);
-
-  if (error || !data.user?.id) {
-    console.error('createUser error:', error)
-    return null
-  }
-
-  return data.user.id
-}
-
-// ─── Core: generate a Supabase session token ──────────────────────────────────
-
-
-/**
- * Returns a real access_token + refresh_token for the user.
- *
- * Strategy:
- *  1. Ensure the auth user has a synthetic email + known password (idempotent)
- *  2. Sign in with that email/password to get a real session
- *
- * This avoids createSession (requires supabase-js >= 2.39) and
- * generateLink (hashed_token expires in seconds).
- */
-export async function generateSessionToken(
-  userId: string,
-  phone: string,
-): Promise<{ accessToken: string; refreshToken: string } | { accessToken: null; refreshToken: null }> {
-  const email = syntheticEmailFromPhone(phone)
-  const password = syntheticPassword(userId)
-
-  // Ensure the user has email + password set (safe to call every time)
-  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    email,
-    email_confirm: true,
-    password,
-  })
-
-  if (updateError) {
-    console.error('[patient-auth] updateUserById error:', updateError.message)
-    return { accessToken: null, refreshToken: null }
-  }
-
-  // Sign in to get a real session with proper access + refresh tokens
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password })
-
-  if (error || !data.session) {
-    console.error('[patient-auth] signInWithPassword error:', error?.message)
-    return { accessToken: null, refreshToken: null }
-  }
-
-  return {
-    accessToken: data.session.access_token,
-    refreshToken: data.session.refresh_token,
-  }
-}
-
 // ─── Onboarding: update profile fields after auth ────────────────────────────
 
 /**
@@ -246,7 +98,7 @@ export async function upsertPatientProfile(
       return { success: false, error: 'No fields provided to update' }
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseClient
       .from('patient_profiles')
       .update(payload)
       .eq('user_id', userId)

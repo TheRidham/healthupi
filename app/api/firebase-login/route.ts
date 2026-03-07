@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import admin from "@/lib/firebase/firebaseAdmin";
 import {
   formatPhoneForDB,
-  findOrCreatePatientByPhone,
-  generateSessionToken,
 } from "@/services/patient.auth.service";
+import { findOrCreatePatientByPhone, generateSessionToken } from "@/lib/server/patient-auth";
 
 export async function POST(req: NextRequest) {
   try {
