@@ -347,7 +347,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
   const today = startOfToday();
 
   // Main view state
-  const [view, setView] = useState<ViewMode>("verify");
+  const [view, setView] = useState<ViewMode>("main");
 
   // Service selection
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(
