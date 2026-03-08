@@ -54,99 +54,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // Step 1: Check Supabase session (for doctors)
-        const { data: { session } } = await supabase.auth.getSession()
+    let hasInitialized = false
 
-        if (session?.user) {
-          // Check if this is a doctor by looking up doctor_profiles
-          const { data: doctorProfile } = await supabase
-            .from('doctor_profiles')
-            .select('user_id, email, first_name, last_name, photo_url, designation')
-            .eq('user_id', session.user.id)
-            .single()
+    const buildUserFromSession = async (session: any) => {
+      if (!session?.user) return null
 
-          if (doctorProfile) {
-            // User is a doctor
-            const userData: AuthUser = {
-              id: session.user.id,
-              role: "doctor",
-              avatar: doctorProfile?.photo_url,
-              name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
-              email: doctorProfile.email,
-              createdAt: new Date(),
-              designation: doctorProfile?.designation,
-            }
-            setUser(userData)
-            setIsLoading(false)
-            return
-          }
+      // Check if this is a doctor
+      const { data: doctorProfile } = await supabase
+        .from('doctor_profiles')
+        .select('user_id, email, first_name, last_name, photo_url, designation')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (doctorProfile) {
+        return {
+          id: session.user.id,
+          role: "doctor" as const,
+          avatar: doctorProfile?.photo_url,
+          name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
+          email: doctorProfile.email,
+          createdAt: new Date(),
+          designation: doctorProfile?.designation,
         }
-
-        // Step 2: Check if this is a patient (by looking up patient_profiles)
-        // Supabase session already exists at this point, so just check if they're in patient_profiles
-        if (session?.user?.id) {
-          const { data: patientProfile } = await supabase
-            .from('patient_profiles')
-            .select('user_id, name, email, photo_url')
-            .eq('user_id', session.user.id)
-            .single()
-
-          console.log("setUserData: ", patientProfile);
-
-          if (patientProfile) {
-            // User is a patient
-            const profile = await loadPatientProfile(session.user.id)
-            const userData: AuthUser = {
-              id: session.user.id,
-              role: "patient",
-              avatar: profile?.photo_url,
-              name: profile?.name || "",
-              email: profile?.email || undefined,
-              createdAt: new Date(),
-            }
-            setUser(userData)
-            setIsLoading(false)
-            return
-          }
-        }
-
-        // Step 3: No session found
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Error checking session:", error)
-        setIsLoading(false)
       }
+
+      // Check if this is a patient
+      const { data: patientProfile } = await supabase
+        .from('patient_profiles')
+        .select('user_id, name, email, photo_url')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (patientProfile) {
+        const profile = await loadPatientProfile(session.user.id)
+        return {
+          id: session.user.id,
+          role: "patient" as const,
+          avatar: profile?.photo_url,
+          name: profile?.name || "",
+          email: profile?.email || undefined,
+          createdAt: new Date(),
+        }
+      }
+
+      return null
     }
 
-    initAuth()
-
-    // Listen for Supabase auth state changes (for doctors)
+    // Listen for Supabase auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Check if doctor
-        const { data: doctorProfile } = await supabase
-          .from('doctor_profiles')
-          .select('user_id, email, first_name, last_name')
-          .eq('user_id', session.user.id)
-          .single()
-
-        if (doctorProfile) {
-          const userData: AuthUser = {
-            id: session.user.id,
-            role: "doctor",
-            name: `${doctorProfile.first_name} ${doctorProfile.last_name}`.trim(),
-            email: doctorProfile.email,
-            createdAt: new Date(),
+      try {
+        switch (event) {
+          case 'INITIAL_SESSION':
+          case 'SIGNED_IN':
+          case 'TOKEN_REFRESHED': {
+            const userData = await buildUserFromSession(session)
+            if (userData) {
+              setUser(userData)
+            } else {
+              setUser(null)
+            }
+            break
           }
-          setUser(userData)
-          return
+          case 'SIGNED_OUT': {
+            setUser(null)
+            setPatientProfile(null)
+            break
+          }
         }
-      } else if (event === 'SIGNED_OUT') {
-        // Clear all auth state
-        setUser(null)
-        setPatientProfile(null)
+      } catch (error) {
+        console.error("Error processing auth state change:", error)
+      } finally {
+        // Mark initialization as complete after first auth state change
+        if (!hasInitialized) {
+          hasInitialized = true
+          setIsLoading(false)
+        }
       }
     })
 

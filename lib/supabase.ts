@@ -7,7 +7,13 @@ export const supabaseAnonKey = config.supabase.supabaseAnonKey
 // Browser client that syncs session to cookies automatically
 export const supabase = createBrowserClient(
   supabaseUrl,
-  supabaseAnonKey
+  supabaseAnonKey,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  }
 )
 
 export const tables = {
