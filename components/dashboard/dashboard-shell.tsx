@@ -10,6 +10,7 @@ import { TimeSlots } from "./time-slots"
 import { CallsSection } from "./calls-section"
 import { PersonalDetails } from "./personal-details"
 import { Header } from "@/components/header"
+import { useAuth } from "@/lib/auth-context"
 import {
   Tooltip,
   TooltipContent,
@@ -34,18 +35,17 @@ const PROFILE_SUBTABS = [
   { key: "timeslots", label: "Time Slots", icon: Clock },
 ] as const
 
-interface DashboardShellProps {
-  doctorId?: string
-}
-
-export function DashboardShell({ doctorId = "andrew-mitchell" }: DashboardShellProps) {
+export function DashboardShell() {
+  const { user } = useAuth()
   const [profileTab, setProfileTab] = useState<string>("services")
   const [copied, setCopied] = useState(false)
 
-  const profileUrl = `healthupi.vercel.app/doctor/${doctorId}`
+  // Use the logged-in doctor's ID, fallback to slug format of name
+  const doctorId = user?.id || "doctor"
+  const profileUrl = `https://healthupi.vercel.app/doctor/${doctorId}`
 
   function handleCopyLink() {
-    navigator.clipboard.writeText(`https://${profileUrl}`)
+    navigator.clipboard.writeText(profileUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 import {
   Tooltip,
   TooltipContent,
@@ -34,18 +35,16 @@ const MAIN_TABS = [
   { key: "personal", label: "Personal Details", icon: UserCircle, label_short: "Details" },
 ] as const
 
-interface DashboardNavProps {
-  doctorId: string
-}
-
-export function DashboardNav({ doctorId }: DashboardNavProps) {
+export function DashboardNav() {
+  const { user } = useAuth()
   const pathname = usePathname()
   const [copied, setCopied] = useState(false)
 
-  const profileUrl = `healthupi.vercel.app/dashboard/${doctorId}/personal`
+  const doctorId = user?.id || "doctor"
+  const profileUrl = `https://healthupi.vercel.app/doctor/${doctorId}`
 
   function handleCopyLink() {
-    navigator.clipboard.writeText(`https://${profileUrl}`)
+    navigator.clipboard.writeText(profileUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
