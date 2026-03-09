@@ -56,7 +56,9 @@ export async function createBooking(
 }> {
   try {
     // URL decode doctor_id in case it comes from URL params
-    const decodedDoctorId = decodeURIComponent(bookingData.doctor_id)
+    // const decodedDoctorId = decodeURIComponent(bookingData.doctor_id)
+    // console.log("decodedDoctorId: ", decodedDoctorId);
+
     
     // Upload media files if any
     let mediaUrls: string[] = []
@@ -65,19 +67,20 @@ export async function createBooking(
     }
 
     // Convert doctor_id (slug) to actual UUID
-    const doctorUuid = await fetchDoctorUuid(decodedDoctorId)
+    // const doctorUuid = await fetchDoctorUuid(decodedDoctorId)
 
-    if (!doctorUuid) {
-      return {
-        success: false,
-        error: 'Doctor not found. Please try again.',
-      }
-    }
+    // console.log("doctorUuid: ", doctorUuid);
+
+    // if (!doctorUuid) {
+    //   return {
+    //     success: false,
+    //     error: 'Doctor not found. Please try again.',
+    //   }
+    // }
 
     // Use the actual UUID for booking data
     const bookingDataWithUuid = {
       ...bookingData,
-      doctor_id: doctorUuid,
       media_urls: mediaUrls,
     }
 

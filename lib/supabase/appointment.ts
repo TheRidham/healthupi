@@ -1,9 +1,11 @@
-import { supabase } from '../supabase'
+import { supabaseClient } from '../supabase-client'
 import type { Appointment, AppointmentInput, AppointmentWithDetails } from '@/types'
 
 // ============================================================================
 // APPOINTMENT CRUD OPERATIONS
 // ============================================================================
+
+const supabase = supabaseClient;
 
 /**
  * Create a new appointment
@@ -285,6 +287,9 @@ export async function isTimeSlotAvailable(
       .eq('doctor_id', doctorId)
       .eq('appointment_date', date)
       .in('status', ['pending', 'confirmed'])
+
+      console.log("after api call");
+    console.log("data: ", data);
 
     if (error) {
       console.error('[Appointment DB] Error checking time slot availability:', error)

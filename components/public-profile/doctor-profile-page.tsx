@@ -387,7 +387,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       try {
         const response = await fetch(`/api/doctor/${doctorId}`);
         const result = await response.json();
-
+        console.log("result: ", result);
         if (result.success) {
           setDoctor(result.data);
         } else {
@@ -747,6 +747,8 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       </div>
     );
   }
+
+  console.log("doctor data: ", doctor)
 
   return (
     <div className="min-h-screen bg-background">
@@ -1273,6 +1275,7 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
           date={selectedDay}
           timeSlot={selectedSlot}
           doctorId={doctorId || "rahul-sharma"}
+          doctorUserId={doctor?.user_id as string}
           doctorName={currentDoctor.name}
           isFollowUp={isFollowUp}
         />

@@ -55,6 +55,7 @@ interface BookingModalProps {
   doctorId: string
   doctorName: string
   isFollowUp: boolean
+  doctorUserId: string;
 }
 
 type Step = "details" | "payment" | "verifying" | "processing"
@@ -73,6 +74,7 @@ export function BookingModal({
   doctorId,
   doctorName,
   isFollowUp,
+  doctorUserId
 }: BookingModalProps) {
   const { user, patientProfile } = useAuth()
   const { initiatePayment, loading: paymentLoading, error: paymentError } = usePayment()
@@ -136,6 +138,8 @@ export function BookingModal({
 
     try {
       const serviceUuid = getServiceUuid(service.id)
+      console.log("service", service);
+      console.log("service uuid: ", serviceUuid);
 
       const rawStartTime = timeSlot.time
 
@@ -170,7 +174,7 @@ export function BookingModal({
       const endTime = `${endHrs.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
 
       const bookingData = {
-        doctor_id: doctorId,
+        doctor_id: doctorUserId,
         patient_id: user?.id || patientProfile?.user_id || "",
         service_id: serviceUuid,
         appointment_date: format(date, 'yyyy-MM-dd'),
@@ -182,6 +186,8 @@ export function BookingModal({
         paymentMethod: "razorpay",
         serviceType: service.type
       }
+
+      console.log("booking Data: ", bookingData);
 
       const result = await createBooking(bookingData)
 
@@ -198,6 +204,8 @@ export function BookingModal({
         patientName: name
       }
       setAppointmentData(appointmentWithEmail)
+      console.log("setting payment step...")
+      setLoading(false);
       setStep("payment")
     } catch (error: any) {
       setError("An error occurred. Please try again.")

@@ -18,14 +18,14 @@ export const DOCTOR_UUID_MAP: Record<string, string> = {
  * Convert doctor slug to UUID
  * In production, fetch from doctor_profiles: SELECT user_id FROM doctor_profiles WHERE id = slug
  */
-export function getDoctorUuid(doctorIdOrSlug: string): string {
+export function getDoctorUuid(doctorIdOrSlug: string): string | null {
   // If already a UUID, return it
   if (doctorIdOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     return doctorIdOrSlug
   }
 
   // Otherwise, use the map (for mock data)
-  return DOCTOR_UUID_MAP[doctorIdOrSlug] || doctorIdOrSlug
+  return DOCTOR_UUID_MAP[doctorIdOrSlug] || null;
 }
 
 /**
