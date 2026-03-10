@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Stethoscope } from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
+import { supabaseClient } from "@/lib/supabase-client";
 import { DoctorFormData, defaultFormData } from "@/lib/type";
 
 import { StepIndicator, STEPS } from "./StepIndicator";
@@ -53,40 +53,57 @@ export default function DoctorProfileForm() {
     setLoading(true);
     setError("");
     
+    console.log('🚀 Starting form submission...')
+    
     try {
       // Validate passwords
       if (form.password !== form.confirmPassword) {
         setError("Passwords do not match.");
+        setLoading(false);  // ⚠️ Add this
         return;
       }
       if (form.password.length < 8) {
         setError("Password must be at least 8 characters.");
+        setLoading(false);  // ⚠️ Add this
         return;
       }
       
+      console.log('✅ Validation passed, creating account...')
+      
       // Create account
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabaseClient.auth.signUp({
         email: form.email,
         password: form.password,
       });
+
+      console.log("✅ Signup response:", data);
       
       if (signUpError) {
+        console.error('❌ Signup error:', signUpError)
         setError(signUpError.message);
+        setLoading(false);  // ⚠️ Add this
         return;
       }
       
       if (!data.user?.id) {
         setError("Failed to create account. Please try again.");
+        setLoading(false);  // ⚠️ Add this
         return;
       }
       
+      console.log('✅ Account created, submitting profile...')
+      
       // Save profile with new user ID
       await submitDoctorProfile(form, data.user.id);
+      
+      console.log("✅ Profile created successfully!")
       setSubmitted(true);
     } catch (e: any) {
+      console.error('❌ Submission error:', e)
       setError(e.message ?? "Something went wrong.");
     } finally {
       setLoading(false);
+      console.log('🏁 Submission complete')
     }
   };
 

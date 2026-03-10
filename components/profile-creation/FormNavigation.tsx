@@ -15,6 +15,8 @@ interface FormNavigationProps {
 export function FormNavigation({ step, totalSteps, loading, onPrev, onNext, hideNext, isFirstStep }: FormNavigationProps) {
   const isLast = step === "account"
 
+  console.log("last step: ", isLast);
+
   return (
     <div className="flex items-center justify-between mt-8 pt-6 border-t">
       <Button

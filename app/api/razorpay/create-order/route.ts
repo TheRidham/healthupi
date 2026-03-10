@@ -17,9 +17,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userId = metadata.patient_id;
+    let userId = metadata.patient_id;
     if (!userId) {
-      return NextResponse.json({ error: "patient_id is required in metadata" }, { status: 400 });
+      userId = null;
+      // return NextResponse.json({ error: "patient_id is required in metadata" }, { status: 400 });
     }
 
     const razorpay = getRazorpayInstance();
