@@ -125,10 +125,15 @@ export function usePayment() {
     [Razorpay, error],
   );
 
+  const reset = useCallback(() => {
+    setState({ loading: false, error: null, success: false });
+  }, []);
+
   return {
     initiatePayment,
-    loading: state.loading || isLoading, // combines your loading + SDK loading
+    loading: state.loading, // ✅ Only use local state that we control
     error: state.error,
     success: state.success,
+    reset,
   };
 }

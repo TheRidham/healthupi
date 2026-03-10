@@ -20,7 +20,7 @@ import { Step4Contact } from "./steps/Step4Contact";
 import { Step5Additional } from "./steps/Step5Additional";
 
 export default function DoctorProfileForm() {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState<string>("basicInfo");
   const [form, setForm] = useState<DoctorFormData>(defaultFormData);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState("");
@@ -32,13 +32,19 @@ export default function DoctorProfileForm() {
 
   const prev = () => {
     setError("");
-    setStep((s) => Math.max(s - 1, 0));
+    const currentIndex = STEPS.findIndex(s => s.id === step);
+    if (currentIndex > 0) {
+      setStep(STEPS[currentIndex - 1].id);
+    }
   };
 
   // ── Next: advance to next step ───
   const next = async () => {
     setError("");
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    const currentIndex = STEPS.findIndex(s => s.id === step);
+    if (currentIndex < STEPS.length - 1) {
+      setStep(STEPS[currentIndex + 1].id);
+    }
   };
 
   // ── Final submit: create account then save profile ───
@@ -86,7 +92,7 @@ export default function DoctorProfileForm() {
 
   const handleReset = () => {
     setForm(defaultFormData);
-    setStep(0);
+    setStep("basicInfo");
     setSubmitted(false);
     setError("");
     setUserId("");
@@ -119,7 +125,7 @@ export default function DoctorProfileForm() {
             Complete Your Profile
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            Step {step + 1} of {STEPS.length} — {STEPS[step].label}
+            {STEPS.find(s => s.id === step)?.label}
           </p>
         </div>
 
@@ -131,12 +137,12 @@ export default function DoctorProfileForm() {
           <CardContent className="p-6 sm:p-8">
             <form onSubmit={handleSubmit}>
               <div className="animate-in fade-in slide-in-from-right-4 duration-300" key={step}>
-                {step === 0 && <Step1BasicInfo {...stepProps} />}
-                {step === 1 && <Step2Professional {...stepProps} />}
-                {step === 2 && <Step3Clinic {...stepProps} />}
-                {step === 3 && <Step4Contact {...stepProps} />}
-                {step === 4 && <Step5Additional {...stepProps} />}
-                {step === 5 && <Step0Account {...stepProps} />}
+                {step === "basicInfo" && <Step1BasicInfo {...stepProps} />}
+                {step === "professional" && <Step2Professional {...stepProps} />}
+                {step === "clinic" && <Step3Clinic {...stepProps} />}
+                {step === "contact" && <Step4Contact {...stepProps} />}
+                {step === "payment" && <Step5Additional {...stepProps} onNext={next} />}
+                {step === "account" && <Step0Account {...stepProps} />}
               </div>
 
               {/* Error */}
@@ -153,6 +159,8 @@ export default function DoctorProfileForm() {
                 loading={loading}
                 onPrev={prev}
                 onNext={next}
+                hideNext={step === "payment"}
+                isFirstStep={step === "basicInfo"}
               />
             </form>
           </CardContent>

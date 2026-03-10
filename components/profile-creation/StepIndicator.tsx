@@ -11,20 +11,21 @@ import {
 import { cn } from "@/lib/utils";
 
 export const STEPS = [
-  { id: 0, label: "Basic Info", icon: User },
-  { id: 1, label: "Professional", icon: Stethoscope },
-  { id: 2, label: "Clinic", icon: Building2 },
-  { id: 3, label: "Contact", icon: Phone },
-  { id: 4, label: "Additional", icon: Star },
-  { id: 5, label: "Account", icon: KeyRound },
+  { id: "basicInfo", label: "Basic Info", icon: User },
+  { id: "professional", label: "Professional", icon: Stethoscope },
+  { id: "clinic", label: "Clinic", icon: Building2 },
+  { id: "contact", label: "Contact", icon: Phone },
+  { id: "payment", label: "Payment", icon: Star },
+  { id: "account", label: "Account", icon: KeyRound },
 ];
 
 interface StepIndicatorProps {
-  currentStep: number;
+  currentStep: string;
 }
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
-  const progress = (currentStep / (STEPS.length - 1)) * 100;
+  const currentIndex = STEPS.findIndex(s => s.id === currentStep);
+  const progress = (currentIndex / (STEPS.length - 1)) * 100;
 
   return (
     <div className="space-y-4 mb-8">
@@ -33,7 +34,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
         {STEPS.map((step, i) => {
           const Icon = step.icon;
           const isActive = step.id === currentStep;
-          const isDone = step.id < currentStep;
+          const isDone = i < currentIndex;
 
           return (
             <div key={step.id} className="flex items-center flex-1">
