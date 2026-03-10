@@ -56,7 +56,7 @@ export function Header() {
               <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
                 <Stethoscope className="size-5" />
               </div>
-              <span className="font-semibold text-lg hidden sm:inline-block">HealthUPI</span>
+              <span className="font-semibold text-lg hidden sm:inline-block">HealthBase</span>
             </Link>
 
             {!isHome && !isDashboardPage && !isProfilePage && (
@@ -131,31 +131,14 @@ export function Header() {
                     </Button>
                   </div>
                 ) : (
-                  <Button variant="ghost" size="sm" className="hidden sm:flex gap-2 hover:bg-accent" onClick={() => router.push(`/dashboard/${user.id}`)}>
+                  <Button variant="ghost" size="sm" className="hidden sm:flex gap-2 hover:bg-accent" onClick={() => router.push(`/profile`)}>
                     <User className="size-4" />
                     <span>{user.name}</span>
                   </Button>
                 )}
               </div>
             ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex"
-                  onClick={() => router.push("/patient/signin")}
-                >
-                  Patient Login
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex"
-                  onClick={() => router.push("/doctor/signin")}
-                >
-                  Doctor Login
-                </Button>
-              </>
+              null
             )}
 
             <Button

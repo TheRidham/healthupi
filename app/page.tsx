@@ -35,7 +35,7 @@ export default function HomePage() {
             <Stethoscope className="size-7" />
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-            HealthUPI
+            HealthBase
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
             Your complete healthcare platform
