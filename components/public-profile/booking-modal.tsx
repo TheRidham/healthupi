@@ -32,7 +32,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 import { createBooking } from "@/services/booking.service"
 import { calculateAge } from "@/lib/supabase/patient"
 import { getServiceUuid } from "@/lib/utils/mock-data"

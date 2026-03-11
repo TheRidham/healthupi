@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/providers/authProvider";
 import Link from "next/link";
 
 export default function SignInForm() {

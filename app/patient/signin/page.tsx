@@ -28,7 +28,7 @@ import {
   Mail,
   Calendar,
 } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/providers/authProvider";
 import { auth } from "@/lib/firebase/firebaseClient";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { upsertPatientProfile } from "@/services/patient.auth.service";

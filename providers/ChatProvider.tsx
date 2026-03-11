@@ -9,7 +9,7 @@ import {
   markMessagesAsRead,
   subscribeToMessages,
 } from "@/services/chat.service"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 
 interface ChatContextValue {
   messages: Message[]

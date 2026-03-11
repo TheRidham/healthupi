@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation"
 import { ChatProvider } from "@/providers/ChatProvider"
 import ChatLayout from "@/components/chat/chat-layout"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 
 export default function ChatPage() {
   const params = useParams()

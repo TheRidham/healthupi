@@ -32,7 +32,7 @@ import {
   Loader2,
   Video,
 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 import { authFetch } from "@/lib/utils/api"
 import { fetchDoctorProfile } from "@/lib/type"
 

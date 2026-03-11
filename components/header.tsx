@@ -23,7 +23,7 @@ import {
   Search,
 } from "lucide-react"
 import { useState } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 
 export function Header() {
   const pathname = usePathname()

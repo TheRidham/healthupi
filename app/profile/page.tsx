@@ -29,7 +29,7 @@ import {
   History,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 import { getPatientBookings } from "@/services/booking.service"
 import { calculateAge } from "@/lib/supabase/patient"
 import { updatePatient } from "@/services/patient.service"

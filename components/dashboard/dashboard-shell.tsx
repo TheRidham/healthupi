@@ -10,7 +10,7 @@ import { TimeSlots } from "./time-slots"
 import { CallsSection } from "./calls-section"
 import { PersonalDetails } from "./personal-details"
 import { Header } from "@/components/header"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 import {
   Tooltip,
   TooltipContent,

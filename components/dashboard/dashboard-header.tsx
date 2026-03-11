@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Bell, Search, LogOut, User } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/providers/authProvider"
 import { useRouter } from "next/navigation"
 
 interface DashboardHeaderProps {
