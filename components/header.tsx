@@ -38,7 +38,8 @@ export function Header() {
   const isHome = pathname === "/"
   
   const handleLogout = async () => {
-    await logout()
+    const res = await fetch('/api/signout', { method: 'POST' })
+    console.log("signed out")
     router.push("/")
   }
 
