@@ -32,7 +32,6 @@ import { useAuth } from "@/providers/authProvider";
 import { auth } from "@/lib/firebase/firebaseClient";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { upsertPatientProfile } from "@/services/patient.auth.service";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseClient } from "@/lib/supabase-client";
 
 type Step = "phone" | "otp" | "profile";
@@ -73,11 +72,15 @@ function PatientSignInContent() {
 
       const formattedPhone = `+91${phone}`;
 
-      if (!recaptchaRef.current) {
-        recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha", {
-          size: "invisible",
-        });
+      if (recaptchaRef.current) {
+        recaptchaRef.current.clear();
       }
+
+      recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+      });
+
+      await recaptchaRef.current.render();
 
       const confirmation = await signInWithPhoneNumber(
         auth,
@@ -94,62 +97,7 @@ function PatientSignInContent() {
       setLoading(false);
     }
   };
-  //   try {
-  //     setLoading(true);
-  //     setError("");
 
-  //     const code = otp.join("");
-
-  //     if (code.length !== 6) {
-  //       setError("Enter valid OTP");
-  //       setLoading(false);
-  //       return;
-  //     }
-
-  //     const result = await confirmationRef.current.confirm(code);
-
-  //     const idToken = await result.user.getIdToken();
-
-  //     console.log("idToken:",idToken)
-
-  //     const res = await fetch("/api/firebase-login", {
-  //       method: "POST",
-  //       credentials: "include",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ idToken }),
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (!res.ok) {
-  //       throw new Error(data.error || "Login failed");
-  //     }
-
-  //     console.log("userData: ", data);
-
-  //     if (data.userExist) {
-  //       console.log("login......");
-  //       login({
-  //         role: "patient",
-  //         id: data.profile.user_id,
-  //         name: data.profile.name,
-  //         email: data.profile.email,
-  //         createdAt: new Date(),
-  //       });
-  //       setTimeout(() => {
-  //         router.push(redirectUrl);
-  //       }, 500);
-  //     } else {
-  //       setStep("profile");
-  //     }
-  //   } catch (err: any) {
-  //     setError(err.message || "OTP verification failed");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   async function verifyOtp() {
     setError("");
@@ -169,6 +117,7 @@ function PatientSignInContent() {
       // 2. Exchange Firebase token → Supabase user + profile
       const res = await fetch("/api/firebase-login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
@@ -181,27 +130,25 @@ function PatientSignInContent() {
         throw new Error(data.error ?? "Login failed");
       }
 
-      // 3. Tell the client-side Supabase SDK about the session so
-      //    supabase.auth.getUser() works in client components too.
-      //    The tokens are already in cookies for server-side auth.
-      await supabaseClient.auth.setSession({
-        access_token: data.accessToken,
-        refresh_token: data.refreshToken,
-      });
+      console.log("setting supabase auth session");
 
+      // session already in cookies
+      await supabaseClient.auth.getSession();
+     
       // 4. Navigate — server and client are both authenticated
       if (data.userExist) {
+        console.log("navigationg to login user")
         login({
-        id: data.profile.user_id,
-        role: "patient",
-        name: data.profile.name,
-        email: data.profile.email ?? undefined,
-        createdAt: new Date(),
+          id: data.profile.user_id,
+          role: "patient",
+          name: data.profile.name,
+          email: data.profile.email ?? undefined,
+          createdAt: new Date(),
         });
 
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 500);
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 500);
       } else {
         setStep("profile");
       }
@@ -308,7 +255,7 @@ function PatientSignInContent() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <div id="recaptcha"></div>
+                  <div id="recaptcha-container"></div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">+91</span>
                     <Input
