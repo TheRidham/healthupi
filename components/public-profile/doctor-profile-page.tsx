@@ -168,10 +168,16 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
         specialization: doctor?.specialization ?? "",
         date: formattedDate,
         time: appointmentData.start_time,
+        endTime: appointmentData.end_time,
+        appointmentDate: appointmentData.appointment_date,
+        durationMinutes: selectedSlot?.duration,
         mode: appointmentData.serviceType,
         meetingLink,
         appointmentId: appointmentData.id,
+        location: doctor?.address,
       };
+
+      console.log("email payload: ", emailPayload)
 
       const [patientRes] = await Promise.all([
         sendEmail("consultation", {
