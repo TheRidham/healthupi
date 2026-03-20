@@ -173,6 +173,12 @@ export interface AppointmentWithDetails extends Appointment {
   service?: Service
   doctor?: Doctor
   patient?: PatientProfile
+  service_name?: string
+  service_icon?: string
+  doctorName?: string
+  doctor_photo_url?: string
+  google_meet_link?: string | null
+  conversation_id?: string | null
 }
 
 // ============================================================================

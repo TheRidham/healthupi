@@ -40,6 +40,8 @@ export function DashboardNav() {
   const pathname = usePathname()
   const [copied, setCopied] = useState(false)
 
+  console.log("DEBUG: ",user?.id)
+
   const doctorId = user?.id || "doctor"
   const profileUrl = `https://healthupi.vercel.app/doctor/${doctorId}`
 

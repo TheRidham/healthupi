@@ -15,16 +15,3 @@ export const supabase = createBrowserClient(
     },
   }
 )
-
-export const tables = {
-  users: "users",
-  doctors: "doctors",
-  patientProfiles: "patient_profiles",
-  services: "services",
-  timeSlots: "time_slots",
-  appointments: "appointments",
-  payments: "payments",
-  chatMessages: "messages",
-  videoCalls: "video_calls",
-  notifications: "notifications",
-}

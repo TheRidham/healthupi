@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { redirect, usePathname, useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react"
+import { useDoctorData } from "@/hooks/useDoctorData"
 
 interface AppointmentData {
   id: string
@@ -33,12 +34,14 @@ interface AppointmentData {
   status: string
   booked_fee: number
   notes: string
+  conversation_id?: string
 }
 
 export function CallsSection() {
   const pathname = usePathname()
   const router = useRouter()
   const [doctorId, setDoctorId] = useState('')
+  const { doctor } = useDoctorData(doctorId);
   
   const [todayAppointments, setTodayAppointments] = useState<AppointmentData[]>([])
   const [upcomingAppointments, setUpcomingAppointments] = useState<AppointmentData[]>([])
@@ -99,7 +102,18 @@ export function CallsSection() {
   }
 
   const handleStartCall = (apt: AppointmentData) => {
-    router.push(`/chat/${apt.id}`)
+    if (apt.service_name.toLowerCase().includes('chat')) {
+      if (apt.conversation_id) {
+        router.push(`/chat/${apt.conversation_id}`)
+      } else {
+        alert("Chat conversation not found")
+      }
+    } else if (apt.service_name.toLowerCase().includes('video')) {
+      redirect(doctor?.googleMeetLink as string)
+    } else {
+      alert("configure service")
+      return
+    }
   }
 
   if (loading) {

@@ -8,7 +8,7 @@ import {
   isTimeSlotAvailable,
 } from '@/lib/supabase/appointment'
 import { fetchDoctorUuid } from '@/lib/utils/doctor'
-import type { Appointment, AppointmentInput, Payment } from '@/types'
+import type { Appointment, AppointmentInput, Conversation, Payment } from '@/types'
 
 // ============================================================================
 // BOOKING SERVICE - HIGH-LEVEL BOOKING OPERATIONS
@@ -52,6 +52,7 @@ export async function createBooking(
   success: boolean
   appointment?: Appointment
   payment?: Payment
+  conversation?: Conversation,
   error?: string
 }> {
   try {
@@ -119,6 +120,7 @@ export async function createBooking(
       success: true,
       appointment: result.data.appointment,
       payment: result.data.payment,
+      conversation: result.data.conversation
     }
   } catch (error: any) {
     return { success: false, error: error?.message || 'Booking failed' }

@@ -77,15 +77,26 @@ export async function createConversationWithParticipants(params: {
  * Fetch messages
  */
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  const { data, error } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+  try {
+    console.log('[Chat Service] Fetching messages for conversation:', conversationId)
 
-  if (error) throw error
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
 
-  return (data || []).map(mapMessageFromDB);
+    if (error) {
+      console.error('[Chat Service] Error fetching messages:', error)
+      throw error
+    }
+
+    console.log('[Chat Service] Fetched messages:', data)
+    return (data || []).map(mapMessageFromDB);
+  } catch (error) {
+    console.error('[Chat Service] Exception in getMessages:', error)
+    return []
+  }
 }
 
 /**
@@ -99,22 +110,34 @@ export async function createMessage(params: {
 }): Promise<Message> {
   const { conversationId, content, type = "text", senderId } = params
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert([
-      {
-        conversation_id: conversationId,
-        content,
-        type,
-        sender_id: senderId,
-      },
-    ])
-    .select()
-    .single()
+  try {
+    console.log('[Chat Service] Creating message:', { conversationId, content, type, senderId })
 
-  if (error) throw error
+    const { data, error } = await supabase
+      .from("messages")
+      .insert([
+        {
+          conversation_id: conversationId,
+          content,
+          type,
+          sender_id: senderId,
+          status: 'sent',
+        },
+      ])
+      .select()
+      .single()
 
-  return mapMessageFromDB(data)
+    if (error) {
+      console.error('[Chat Service] Error creating message:', error)
+      throw error
+    }
+
+    console.log('[Chat Service] Message created successfully:', data)
+    return mapMessageFromDB(data)
+  } catch (error) {
+    console.error('[Chat Service] Exception in createMessage:', error)
+    throw error
+  }
 }
 
 /**
@@ -135,29 +158,90 @@ export async function markMessagesAsRead(
 }
 
 /**
- * Subscribe
+ * Subscribe to messages in real-time
  */
 export function subscribeToMessages(
   conversationId: string,
   callback: (msg: Message) => void
 ) {
-  const channel = supabase
-    .channel(`conversation:${conversationId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `conversation_id=eq.${conversationId}`,
-      },
-      (payload) => {
-        callback(mapMessageFromDB(payload.new))
-      }
-    )
-    .subscribe()
+  try {
+    console.log('[Chat Service] Setting up real-time message subscription for conversation:', conversationId)
 
-  return () => {
-    supabase.removeChannel(channel)
+    const channel = supabase
+      .channel(`messages:${conversationId}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          console.log('[Chat Service] Real-time message payload received:', {
+            event: payload.eventType,
+            new: payload.new,
+          })
+          if (payload.new && payload.new.id) {
+            try {
+              const message = mapMessageFromDB(payload.new)
+              console.log('[Chat Service] Real-time message received:', message.id, message.content)
+              callback(message)
+            } catch (error) {
+              console.error('[Chat Service] Error mapping message:', error, payload.new)
+            }
+          }
+        }
+      )
+      .on("system", {}, (message) => {
+        console.log('[Chat Service] System event:', message.type)
+      })
+      .subscribe((status) => {
+        console.log('[Chat Service] Subscription status:', status)
+        if (status === "SUBSCRIBED") {
+          console.log('[Chat Service] Successfully subscribed to messages for conversation:', conversationId)
+        } else if (status === "CHANNEL_ERROR") {
+          console.error('[Chat Service] Channel error - will retry on next message')
+        } else if (status === "CLOSED") {
+          console.log('[Chat Service] Subscription closed (normal cleanup)')
+        }
+      })
+
+    return () => {
+      console.log('[Chat Service] Unsubscribing from messages for conversation:', conversationId)
+      supabase.removeChannel(channel)
+    }
+  } catch (error) {
+    console.error('[Chat Service] Error setting up subscription:', error)
+    return () => {}
+  }
+}
+
+/**
+ * Get conversation participants
+ */
+export async function getConversationParticipants(conversationId: string) {
+  try {
+    console.log('[Chat Service] Fetching participants for conversation:', conversationId)
+
+    const { data, error } = await supabase
+      .from("conversation_participants")
+      .select("id, user_id, role, joined_at")
+      .eq("conversation_id", conversationId)
+
+    if (error) {
+      console.error("[Chat Service] Error fetching participants:", error)
+      return []
+    }
+
+    console.log('[Chat Service] Fetched participants:', data)
+    return data || []
+  } catch (error) {
+    console.error("[Chat Service] Exception in getConversationParticipants:", error)
+    return []
   }
 }

@@ -184,7 +184,8 @@ export function BookingModal({
         mediaFiles: uploadedFiles,
         paymentAmount: service.price,
         paymentMethod: "razorpay",
-        serviceType: service.type
+        serviceType: service.type,
+        service_name: service.name,
       }
 
       console.log("booking Data: ", bookingData);
@@ -197,11 +198,13 @@ export function BookingModal({
         return
       }
 
-      // Store appointment data with form email to pass to parent on success
+      // Store appointment data with form email and conversation info to pass to parent on success
       const appointmentWithEmail = {
         ...result.appointment,
         patientEmail: email,
-        patientName: name
+        patientName: name,
+        conversationId: result.conversation?.id || null,
+        serviceName: service.name,
       }
       setAppointmentData(appointmentWithEmail)
       console.log("setting payment step...")

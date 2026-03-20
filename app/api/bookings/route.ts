@@ -24,6 +24,56 @@ function validateBookingInput(body: any): { valid: boolean; error?: string } {
   return { valid: true }
 }
 
+async function createChatConversation(appointmentId: string, doctorId: string, patientId: string) {
+  try {
+    // Create conversation
+    const { data: conversation, error: conversationError } = await supabaseAdmin
+      .from('conversations')
+      .insert({
+        appointment_id: appointmentId,
+        type: 'chat',
+      })
+      .select()
+      .single()
+
+    if (conversationError) {
+      console.error('[Bookings API] Error creating conversation:', conversationError)
+      return null
+    }
+
+    // Add doctor participant
+    const { error: doctorParticipantError } = await supabaseAdmin
+      .from('conversation_participants')
+      .insert({
+        conversation_id: conversation.id,
+        user_id: doctorId,
+        role: 'doctor',
+      })
+
+    if (doctorParticipantError) {
+      console.error('[Bookings API] Error adding doctor participant:', doctorParticipantError)
+    }
+
+    // Add patient participant
+    const { error: patientParticipantError } = await supabaseAdmin
+      .from('conversation_participants')
+      .insert({
+        conversation_id: conversation.id,
+        user_id: patientId,
+        role: 'patient',
+      })
+
+    if (patientParticipantError) {
+      console.error('[Bookings API] Error adding patient participant:', patientParticipantError)
+    }
+
+    return conversation
+  } catch (error) {
+    console.error('[Bookings API] Error in createChatConversation:', error)
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -43,7 +93,8 @@ export async function POST(request: NextRequest) {
       notes,
       media_urls,
       paymentAmount,
-      paymentMethod
+      paymentMethod,
+      service_name,
     } = body
 
     const { data: appointment, error: appointmentError } = await supabaseAdmin
@@ -67,6 +118,12 @@ export async function POST(request: NextRequest) {
       return errorResponse(appointmentError.message, 500)
     }
 
+    // Create conversation if this is a chat service (match by service name)
+    let conversation = null
+    if (service_name?.toLowerCase().includes('chat')) {
+      conversation = await createChatConversation(appointment.id, doctor_id, patient_id)
+    }
+
     if (paymentAmount) {
       const { data: payment, error: paymentError } = await supabaseAdmin
         .from('payments')
@@ -85,10 +142,23 @@ export async function POST(request: NextRequest) {
         return errorResponse(paymentError.message, 500)
       }
 
-      return successResponse({ appointment, payment }, 201)
+      return successResponse(
+        {
+          appointment,
+          payment,
+          conversation: conversation || null,
+        },
+        201
+      )
     }
 
-    return successResponse({ appointment }, 201)
+    return successResponse(
+      {
+        appointment,
+        conversation: conversation || null,
+      },
+      201
+    )
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }

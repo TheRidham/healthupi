@@ -203,6 +203,32 @@ export default function ProfilePage() {
     })
   }
 
+  const handleJoinSession = (apt) => {
+    if (!apt) {
+      alert('Appointment data not available')
+      return
+    }
+
+    const isChat = apt.service_name?.toLowerCase().includes('chat')
+    const isVideo = apt.service_name?.toLowerCase().includes('video')
+
+    if (isChat) {
+      if (!apt.conversation_id) {
+        alert('Chat session not ready. Please refresh and try again.')
+        return
+      }
+      router.push(`/chat/${apt.conversation_id}`)
+    } else if (isVideo) {
+      if (apt.google_meet_link) {
+        window.open(apt.google_meet_link, '_blank')
+      } else {
+        alert('Video meeting link not available. Please try again in a moment.')
+      }
+    } else {
+      alert(`${apt.service_name || 'Consultation'} joining not yet supported. Please check back soon.`)
+    }
+  }
+
   const todayUpcoming = upcoming.filter(apt => {
     if (!apt.appointment_date) return false
     return format(new Date(apt.appointment_date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
@@ -322,7 +348,7 @@ export default function ProfilePage() {
                         {apt.service_name?.includes('Video') ? <Video className="size-3" /> : <MessageSquare className="size-3" />}
                         {apt.service_name}
                       </Badge>
-                      <Button size="sm">Join</Button>
+                      <Button onClick={() => handleJoinSession(apt)} size="sm">Join</Button>
                     </div>
                   </div>
                 ))}

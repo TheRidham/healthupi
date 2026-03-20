@@ -2,6 +2,7 @@
 
 import { Message } from "@/types"
 import clsx from "clsx"
+import { useEffect, useRef } from "react"
 
 interface Props {
   messages: Message[]
@@ -9,6 +10,13 @@ interface Props {
 }
 
 export function ChatWindow({ messages, currentUserId }: Props) {
+  const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Auto-scroll to bottom when new messages arrive
+    endRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30">
       {messages.map((msg, index) => {
@@ -35,6 +43,7 @@ export function ChatWindow({ messages, currentUserId }: Props) {
           </div>
         )
       })}
+      <div ref={endRef} />
     </div>
   )
 }

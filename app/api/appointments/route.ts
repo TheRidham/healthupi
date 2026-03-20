@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
       .from('appointments')
       .select(`
         *,
-        doctor:doctor_profiles!inner(id, user_id, first_name, last_name, photo_url, specialization)
+        doctor:doctor_profiles!inner(id, user_id, first_name, last_name, photo_url, specialization, google_meet_link),
+        conversation:conversations(id, type)
       `)
       .eq('patient_id', patientId)
       .order('appointment_date', { ascending: true })
@@ -38,8 +39,10 @@ export async function GET(request: NextRequest) {
       const service_icon = service?.icon || 'Video'
       const doctorName = apt.doctor ? `Dr. ${apt.doctor.first_name} ${apt.doctor.last_name}` : 'Doctor'
       const doctor_photo_url = apt.doctor?.photo_url
+      const google_meet_link = apt.doctor?.google_meet_link || null
+      const conversation_id = apt.conversation?.[0]?.id || null
 
-      console.log('[API] Mapping appointment:', apt.id, 'service_id:', apt.service_id, 'service_name:', service_name, 'date:', apt.appointment_date, 'status:', apt.status)
+      console.log('[API] Mapping appointment:', apt.id, 'service_id:', apt.service_id, 'service_name:', service_name, 'date:', apt.appointment_date, 'status:', apt.status, 'conversation_id:', conversation_id)
 
       return {
         ...apt,
@@ -47,6 +50,8 @@ export async function GET(request: NextRequest) {
         service_icon,
         doctorName,
         doctor_photo_url,
+        google_meet_link,
+        conversation_id,
         appointment_date: apt.appointment_date ? new Date(apt.appointment_date) : null,
       }
     })

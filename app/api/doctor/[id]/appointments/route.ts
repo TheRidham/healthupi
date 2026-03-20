@@ -35,7 +35,8 @@ export async function GET(
           phone,
           email,
           date_of_birth
-        )
+        ),
+        conversation:conversations(id, type)
       `)
       .eq('doctor_id', doctor.user_id)
 
@@ -78,6 +79,7 @@ export async function GET(
         status: apt.status,
         booked_fee: apt.booked_fee,
         notes: apt.notes,
+        conversation_id: apt.conversation?.[0]?.id || null,
       }
     })
 
