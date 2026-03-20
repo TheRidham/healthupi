@@ -33,6 +33,7 @@ import { useAuth } from "@/providers/authProvider"
 import { getPatientBookings } from "@/services/booking.service"
 import { calculateAge } from "@/lib/supabase/patient"
 import { updatePatient } from "@/services/patient.service"
+import { AppointmentWithDetails } from "@/types"
 
 export default function ProfilePage() {
   const { user, patientProfile, isLoading, refreshProfile } = useAuth()
@@ -203,7 +204,7 @@ export default function ProfilePage() {
     })
   }
 
-  const handleJoinSession = (apt) => {
+  const handleJoinSession = (apt: AppointmentWithDetails) => {
     if (!apt) {
       alert('Appointment data not available')
       return

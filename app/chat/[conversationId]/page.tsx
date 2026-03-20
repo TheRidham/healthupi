@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react"
 export default function ChatPage() {
   const params = useParams()
   const conversationId = params.conversationId as string
-  const { user, loading: userLoading } = useAuth();
+  const { user, isLoading: userLoading } = useAuth();
 
   // Wait for user to be loaded
   if (userLoading || !user?.id) {
