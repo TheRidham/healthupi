@@ -1,37 +1,46 @@
-"use client"
+"use client";
 
-import { authFetch } from "@/lib/utils/api"
-
-import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { authFetch } from "@/lib/utils/api";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Video, MessageSquare, Home, Siren, CreditCard, Info, Loader2, RotateCcw, Plus } from "lucide-react"
+} from "@/components/ui/dialog";
+import {
+  Video,
+  MessageSquare,
+  Home,
+  Siren,
+  CreditCard,
+  Info,
+  Loader2,
+  RotateCcw,
+  Plus,
+} from "lucide-react";
 
 interface ServiceConfig {
-  id: string
-  name: string
-  icon: React.ReactNode
-  enabled: boolean
-  fee: number
-  description: string
-  type: string
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  enabled: boolean;
+  fee: number;
+  description: string;
+  type: string;
 }
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -39,169 +48,207 @@ const iconMap: Record<string, React.ReactNode> = {
   message: <MessageSquare className="size-5" />,
   home: <Home className="size-5" />,
   alert: <Siren className="size-5" />,
-  'credit-card': <CreditCard className="size-5" />,
-  'rotate-ccw': <RotateCcw className="size-5" />,
-}
+  "credit-card": <CreditCard className="size-5" />,
+  "rotate-ccw": <RotateCcw className="size-5" />,
+};
 
 function getIcon(iconName: string) {
-  return iconMap[iconName?.toLowerCase()] || <Video className="size-5" />
+  return iconMap[iconName?.toLowerCase()] || <Video className="size-5" />;
 }
 
 export function ServicesManagement() {
-  const pathname = usePathname()
-  const doctorId = pathname?.split('/')[2] || ''
-  
-  const [services, setServices] = useState<ServiceConfig[]>([])
-  const [followups, setFollowups] = useState<ServiceConfig[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState<string | null>(null)
-  const [addingServices, setAddingServices] = useState(false)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [availableServices, setAvailableServices] = useState<any[]>([])
-  const [loadingAvailable, setLoadingAvailable] = useState(false)
-  const [error, setError] = useState("")
+  const pathname = usePathname();
+  const doctorId = pathname?.split("/")[2] || "";
+
+  const [services, setServices] = useState<ServiceConfig[]>([]);
+  const [followups, setFollowups] = useState<ServiceConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<{
+    id: string;
+    action: "toggle" | "price" | "add";
+  } | null>(null);
+  const [addingServices, setAddingServices] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showPriceDialog, setShowPriceDialog] = useState(false);
+  const [selectedService, setSelectedService] = useState<ServiceConfig | null>(null);
+  const [priceDraft, setPriceDraft] = useState("");
+  const [availableServices, setAvailableServices] = useState<any[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchServices = async () => {
-    if (!doctorId) return
-    
+    if (!doctorId) return;
+
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/services`)
-      const result = await response.json()
-      
+      const response = await fetch(`/api/doctor/${doctorId}/services`);
+      const result = await response.json();
+      console.log("result", result);
       if (result.success) {
-        setServices(result.data.services || [])
-        setFollowups(result.data.followups || [])
+        setServices(result.data.services || []);
+        setFollowups(result.data.followups || []);
       } else {
-        setError(result.error || 'Failed to load services')
+        setError(result.error || "Failed to load services");
       }
     } catch (err) {
-      setError('Failed to load services')
+      setError("Failed to load services");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchServices()
-  }, [doctorId])
+    fetchServices();
+  }, [doctorId]);
 
   const toggleService = async (serviceId: string, currentEnabled: boolean) => {
-    setSaving(serviceId)
-    
+    setSaving({ id: serviceId, action: "toggle" });
+
     try {
       const response = await authFetch(`/api/doctor/${doctorId}/services`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify({
           service_id: serviceId,
           enabled: !currentEnabled,
         }),
-      })
-      
-      const result = await response.json()
-      
+      });
+
+      const result = await response.json();
+
       if (result.success) {
-        setServices(prev => prev.map(s => 
-          s.id === serviceId ? { ...s, enabled: !currentEnabled } : s
-        ))
-        setFollowups(prev => prev.map(s => 
-          s.id === serviceId ? { ...s, enabled: !currentEnabled } : s
-        ))
+        setServices((prev) =>
+          prev.map((s) =>
+            s.id === serviceId ? { ...s, enabled: !currentEnabled } : s,
+          ),
+        );
+        setFollowups((prev) =>
+          prev.map((s) =>
+            s.id === serviceId ? { ...s, enabled: !currentEnabled } : s,
+          ),
+        );
       } else {
-        setError(result.error || 'Failed to update service')
+        setError(result.error || "Failed to update service");
       }
     } catch (err) {
-      setError('Failed to update service')
+      setError("Failed to update service");
     } finally {
-      setSaving(null)
+      setSaving(null);
     }
-  }
+  };
 
-  const updatePrice = async (serviceId: string, currentFee: number, newFee: string) => {
-    const fee = parseInt(newFee) || currentFee
-    setSaving(serviceId)
-    
+  const updatePrice = async (
+    serviceId: string,
+    currentFee: number,
+    newFee: string,
+  ) => {
+    const parsedFee = parseInt(newFee, 10);
+    const fee = Number.isNaN(parsedFee) ? currentFee : parsedFee;
+
+    if (fee === currentFee) {
+      return;
+    }
+
+    setSaving({ id: serviceId, action: "price" });
+
     try {
       const response = await authFetch(`/api/doctor/${doctorId}/services`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify({
           service_id: serviceId,
           fee: fee,
         }),
-      })
-      
-      const result = await response.json()
-      
+      });
+
+      const result = await response.json();
+
       if (result.success) {
-        setServices(prev => prev.map(s => 
-          s.id === serviceId ? { ...s, fee } : s
-        ))
-        setFollowups(prev => prev.map(s => 
-          s.id === serviceId ? { ...s, fee } : s
-        ))
+        setServices((prev) =>
+          prev.map((s) => (s.id === serviceId ? { ...s, fee } : s)),
+        );
+        setFollowups((prev) =>
+          prev.map((s) => (s.id === serviceId ? { ...s, fee } : s)),
+        );
       } else {
-        setError(result.error || 'Failed to update fee')
+        setError(result.error || "Failed to update fee");
       }
     } catch (err) {
-      setError('Failed to update fee')
+      setError("Failed to update fee");
     } finally {
-      setSaving(null)
+      setSaving(null);
     }
-  }
+  };
 
   const addDefaultServices = async () => {
-    setLoadingAvailable(true)
-    setShowAddDialog(true)
+    setLoadingAvailable(true);
+    setShowAddDialog(true);
     try {
-      const response = await fetch(`/api/doctor/${doctorId}/services?action=available`)
-      const result = await response.json()
-      
+      const response = await fetch(
+        `/api/doctor/${doctorId}/services?action=available`,
+      );
+      const result = await response.json();
+
       if (result.success) {
-        setAvailableServices(result.data || [])
+        setAvailableServices(result.data || []);
       } else {
-        setError(result.error || 'Failed to load services')
+        setError(result.error || "Failed to load services");
       }
     } catch (err) {
-      setError('Failed to load services')
+      setError("Failed to load services");
     } finally {
-      setLoadingAvailable(false)
+      setLoadingAvailable(false);
     }
-  }
+  };
 
   const addService = async (serviceId: string, defaultPrice: number) => {
-    setSaving(serviceId)
+    setSaving({ id: serviceId, action: "add" });
     try {
       const response = await authFetch(`/api/doctor/${doctorId}/services`, {
-        method: 'POST',
-        body: JSON.stringify({ 
+        method: "POST",
+        body: JSON.stringify({
           service_id: serviceId,
           fee: defaultPrice,
-          enabled: true 
+          enabled: true,
         }),
-      })
-      
-      const result = await response.json()
-      
+      });
+
+      const result = await response.json();
+
       if (result.success) {
-        fetchServices()
-        setAvailableServices(prev => prev.filter(s => s.id !== serviceId))
+        fetchServices();
+        setAvailableServices((prev) => prev.filter((s) => s.id !== serviceId));
       } else {
-        setError(result.error || 'Failed to add service')
+        setError(result.error || "Failed to add service");
       }
     } catch (err) {
-      setError('Failed to add service')
+      setError("Failed to add service");
     } finally {
-      setSaving(null)
+      setSaving(null);
     }
-  }
+  };
 
-  const allServices = [...services, ...followups]
+  const openPriceDialog = (service: ServiceConfig) => {
+    setSelectedService(service);
+    setPriceDraft(String(service.fee));
+    setShowPriceDialog(true);
+  };
+
+  const submitPriceUpdate = async () => {
+    if (!selectedService) {
+      return;
+    }
+
+    await updatePrice(selectedService.id, selectedService.fee, priceDraft);
+    setShowPriceDialog(false);
+    setSelectedService(null);
+  };
+
+  const allServices = [...services, ...followups];
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="size-8 animate-spin" />
       </div>
-    )
+    );
   }
 
   return (
@@ -234,13 +281,20 @@ export function ServicesManagement() {
       {allServices.length === 0 ? (
         <Card className="py-8">
           <CardContent className="text-center text-muted-foreground">
-            <p className="mb-4">No services configured. Add services to start accepting appointments.</p>
-            <Button 
-              variant="outline" 
+            <p className="mb-4">
+              No services configured. Add services to start accepting
+              appointments.
+            </p>
+            <Button
+              variant="outline"
               onClick={addDefaultServices}
               disabled={addingServices}
             >
-              {addingServices ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Plus className="size-4 mr-2" />}
+              {addingServices ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="size-4 mr-2" />
+              )}
               Add Services
             </Button>
           </CardContent>
@@ -264,7 +318,7 @@ export function ServicesManagement() {
                 key={service.id}
                 className={`py-4 transition-all ${
                   service.enabled
-                    ? "border-primary/20 bg-primary/[0.02]"
+                    ? "border-primary/20 bg-primary/2"
                     : "opacity-70"
                 }`}
               >
@@ -302,44 +356,39 @@ export function ServicesManagement() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto sm:ml-0">
-                      <div className="flex items-center gap-1.5" data-disabled={!service.enabled}>
-                        <Label
-                          htmlFor={`price-${service.id}`}
-                          className="text-xs text-muted-foreground font-medium"
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 min-w-24 justify-between"
+                        onClick={() => openPriceDialog(service)}
+                        disabled={!service.enabled || saving?.id === service.id}
+                        aria-label={`Edit ${service.name} price`}
+                      >
+                        <span>₹{service.fee}</span>
+                        {saving?.id === service.id && saving.action === "price" ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : null}
+                      </Button>
+                      {saving?.id === service.id && saving.action === "toggle" ? (
+                        <div
+                          className="flex size-9 items-center justify-center"
+                          aria-live="polite"
+                          aria-label={`Saving ${service.name}`}
                         >
-                          ₹
-                        </Label>
-                        <Input
-                          id={`price-${service.id}`}
-                          type="number"
-                          value={service.fee}
-                          onChange={(e) => {
-                            const newFee = e.target.value
-                            setServices(prev => prev.map(s => 
-                              s.id === service.id ? { ...s, fee: parseInt(newFee) || 0 } : s
-                            ))
-                            setFollowups(prev => prev.map(s => 
-                              s.id === service.id ? { ...s, fee: parseInt(newFee) || 0 } : s
-                            ))
-                          }}
-                          onBlur={(e) => updatePrice(service.id, service.fee, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              updatePrice(service.id, service.fee, (e.target as HTMLInputElement).value)
-                            }
-                          }}
-                          className="w-20 h-8 text-sm text-right"
-                          disabled={!service.enabled || saving === service.id}
-                          aria-label={`${service.name} price`}
+                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <Switch
+                          id={`switch-${service.id}`}
+                          checked={service.enabled}
+                          onCheckedChange={() =>
+                            toggleService(service.id, service.enabled)
+                          }
+                          disabled={saving?.id === service.id}
+                          aria-label={`Toggle ${service.name}`}
                         />
-                      </div>
-                      <Switch
-                        id={`switch-${service.id}`}
-                        checked={service.enabled}
-                        onCheckedChange={() => toggleService(service.id, service.enabled)}
-                        disabled={saving === service.id}
-                        aria-label={`Toggle ${service.name}`}
-                      />
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -356,7 +405,7 @@ export function ServicesManagement() {
                     key={service.id}
                     className={`py-4 transition-all ${
                       service.enabled
-                        ? "border-primary/20 bg-primary/[0.02]"
+                        ? "border-primary/20 bg-primary/2"
                         : "opacity-70"
                     }`}
                   >
@@ -378,7 +427,9 @@ export function ServicesManagement() {
                                 {service.name}
                               </span>
                               <Badge
-                                variant={service.enabled ? "default" : "secondary"}
+                                variant={
+                                  service.enabled ? "default" : "secondary"
+                                }
                                 className={
                                   service.enabled
                                     ? "bg-accent text-accent-foreground text-[10px] px-1.5 py-0"
@@ -394,41 +445,39 @@ export function ServicesManagement() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto sm:ml-0">
-                          <div className="flex items-center gap-1.5" data-disabled={!service.enabled}>
-                            <Label
-                              htmlFor={`price-${service.id}`}
-                              className="text-xs text-muted-foreground font-medium"
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 min-w-24 justify-between"
+                            onClick={() => openPriceDialog(service)}
+                            disabled={!service.enabled || saving?.id === service.id}
+                            aria-label={`Edit ${service.name} price`}
+                          >
+                            <span>₹{service.fee}</span>
+                            {saving?.id === service.id && saving.action === "price" ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : null}
+                          </Button>
+                          {saving?.id === service.id && saving.action === "toggle" ? (
+                            <div
+                              className="flex size-9 items-center justify-center"
+                              aria-live="polite"
+                              aria-label={`Saving ${service.name}`}
                             >
-                              ₹
-                            </Label>
-                          <Input
-                            id={`price-${service.id}`}
-                            type="number"
-                            value={service.fee}
-                            onChange={(e) => {
-                              const newFee = e.target.value
-                              setFollowups(prev => prev.map(s => 
-                                s.id === service.id ? { ...s, fee: parseInt(newFee) || 0 } : s
-                              ))
-                            }}
-                            onBlur={(e) => updatePrice(service.id, service.fee, e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                updatePrice(service.id, service.fee, (e.target as HTMLInputElement).value)
+                              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <Switch
+                              id={`switch-${service.id}`}
+                              checked={service.enabled}
+                              onCheckedChange={() =>
+                                toggleService(service.id, service.enabled)
                               }
-                            }}
-                            className="w-20 h-8 text-sm text-right"
-                            disabled={!service.enabled || saving === service.id}
-                            aria-label={`${service.name} price`}
-                          />
-                          </div>
-                          <Switch
-                            id={`switch-${service.id}`}
-                            checked={service.enabled}
-                            onCheckedChange={() => toggleService(service.id, service.enabled)}
-                            disabled={saving === service.id}
-                            aria-label={`Toggle ${service.name}`}
-                          />
+                              disabled={saving?.id === service.id}
+                              aria-label={`Toggle ${service.name}`}
+                            />
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -454,10 +503,12 @@ export function ServicesManagement() {
                 <Loader2 className="size-6 animate-spin" />
               </div>
             ) : availableServices.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">All services have been added</p>
+              <p className="text-center text-muted-foreground py-4">
+                All services have been added
+              </p>
             ) : (
               availableServices.map((service) => (
-                <div 
+                <div
                   key={service.id}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
@@ -465,15 +516,21 @@ export function ServicesManagement() {
                     {getIcon(service.icon)}
                     <div>
                       <p className="font-medium">{service.name}</p>
-                      <p className="text-xs text-muted-foreground">{service.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {service.description}
+                      </p>
                     </div>
                   </div>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => addService(service.id, service.price)}
-                    disabled={saving === service.id}
+                    disabled={saving?.id === service.id}
                   >
-                    {saving === service.id ? <Loader2 className="size-4 animate-spin" /> : 'Add'}
+                    {saving?.id === service.id && saving?.action === "add" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Add"
+                    )}
                   </Button>
                 </div>
               ))
@@ -481,6 +538,61 @@ export function ServicesManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={showPriceDialog}
+        onOpenChange={(open) => {
+          setShowPriceDialog(open);
+          if (!open) {
+            setSelectedService(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Price</DialogTitle>
+            <DialogDescription>
+              Enter consultation fee for {selectedService?.name || "this service"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="service-price">Fee (INR)</Label>
+              <Input
+                id="service-price"
+                type="number"
+                min={0}
+                value={priceDraft}
+                onChange={(e) => setPriceDraft(e.target.value)}
+                disabled={!selectedService || saving?.action === "price"}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPriceDialog(false);
+                  setSelectedService(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={submitPriceUpdate}
+                disabled={!selectedService || saving?.action === "price"}
+              >
+                {saving?.action === "price" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  "Update"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
