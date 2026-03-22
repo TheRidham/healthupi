@@ -9,20 +9,29 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('[Appointments API] GET request starting...')
     const authUser = await requireDoctor(request)
+    console.log('[Appointments API] Auth passed, user:', authUser.id)
+    
     const { id: doctorId } = await context.params
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const date = searchParams.get('date')
 
+    console.log('[Appointments API] doctorId:', doctorId, 'status:', status, 'date:', date)
+
     const doctor = await findDoctor(doctorId)
     if (!doctor) {
+      console.error('[Appointments API] Doctor not found:', doctorId)
       return errorResponse('Doctor not found', 404)
     }
 
     if (doctor.user_id !== authUser.id) {
+      console.error('[Appointments API] Auth mismatch - doctor user_id:', doctor.user_id, 'auth id:', authUser.id)
       return errorResponse('Cannot view another doctor\'s appointments', 403)
     }
+
+    console.log('[Appointments API] Fetching appointments for doctor:', doctor.user_id)
 
     let appointmentsQuery = supabaseAdmin
       .from('appointments')
@@ -52,8 +61,11 @@ export async function GET(
       .order('start_time', { ascending: true })
 
     if (error) {
+      console.error('[Appointments API] Query error:', error)
       return errorResponse(error.message, 500)
     }
+
+    console.log('[Appointments API] Found appointments:', appointments?.length || 0)
 
     // Fetch all services to match by service_id
     const { data: servicesData } = await supabaseAdmin
@@ -90,6 +102,8 @@ export async function GET(
     const completed = formattedAppointments.filter((apt: any) => apt.status === 'completed')
     const todayAppointments = formattedAppointments.filter((apt: any) => apt.appointment_date === today)
 
+    console.log('[Appointments API] Returning:', { today: todayAppointments.length, upcoming: upcoming.length, completed: completed.length })
+
     return successResponse({
       all: formattedAppointments,
       upcoming,
@@ -102,6 +116,7 @@ export async function GET(
       }
     })
   } catch (error) {
+    console.error('[Appointments API] Exception:', error instanceof Error ? error.message : String(error))
     if (error instanceof Error && error.name === 'AuthError') {
       return handleAuthError(error)
     }

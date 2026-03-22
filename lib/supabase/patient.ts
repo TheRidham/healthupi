@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { supabaseClient } from '../supabase-client'
 import type { PatientProfile, PatientProfileInput } from '@/types'
 
 // ============================================================================
@@ -10,7 +10,7 @@ import type { PatientProfile, PatientProfileInput } from '@/types'
  */
 export async function findPatientByPhone(phone: string): Promise<PatientProfile | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('patient_profiles')
       .select('*')
       .eq('phone', phone)
@@ -42,7 +42,7 @@ export async function findPatientByPhone(phone: string): Promise<PatientProfile 
  */
 export async function findPatientByUserId(userId: string): Promise<PatientProfile | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('patient_profiles')
       .select('*')
       .eq('user_id', userId)
@@ -73,7 +73,7 @@ export async function findPatientByUserId(userId: string): Promise<PatientProfil
  */
 export async function createPatientProfile(profile: PatientProfileInput): Promise<PatientProfile | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('patient_profiles')
       .insert(profile)
       .select()
@@ -104,7 +104,7 @@ export async function updatePatientProfile(
   updates: Partial<PatientProfileInput>
 ): Promise<PatientProfile | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('patient_profiles')
       .update(updates)
       .eq('user_id', userId)
@@ -133,7 +133,7 @@ export async function updatePatientProfile(
  */
 export async function deletePatientProfile(userId: string): Promise<boolean> {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('patient_profiles')
       .delete()
       .eq('user_id', userId)

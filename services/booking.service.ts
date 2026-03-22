@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseClient } from '@/lib/supabase-client'
 import {
   createAppointment as createAppointmentDB,
   getAppointmentById,
@@ -21,12 +21,12 @@ async function uploadMediaFiles(files: File[], patientId: string): Promise<strin
     const fileExt = file.name.split('.').pop()
     const fileName = `${patientId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
     
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabaseClient.storage
       .from('patient-photos')
       .upload(fileName, file)
     
     if (!error && data) {
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = supabaseClient.storage
         .from('patient-photos')
         .getPublicUrl(fileName)
       
@@ -250,7 +250,7 @@ export async function updatePaymentStatus(
       updateData.transaction_id = transactionId
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('payments')
       .update(updateData)
       .eq('id', paymentId)
@@ -263,7 +263,7 @@ export async function updatePaymentStatus(
     // If payment is completed, confirm appointment
     if (status === 'completed') {
       // Get to appointment ID from payment
-      const { data: payment } = await supabase
+      const { data: payment } = await supabaseClient
         .from('payments')
         .select('appointment_id')
         .eq('id', paymentId)
@@ -299,7 +299,7 @@ async function createPayment(paymentData: {
   try {
     console.log('[Booking Service] Creating payment:', paymentData)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('payments')
       .insert({
         appointment_id: paymentData.appointment_id,
@@ -337,7 +337,7 @@ async function createPayment(paymentData: {
  */
 export async function getPaymentByAppointment(appointmentId: string): Promise<Payment | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('payments')
       .select('*')
       .eq('appointment_id', appointmentId)

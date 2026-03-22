@@ -26,7 +26,7 @@ export default function ChatPage() {
   return (
     <div className="py-2 h-screen">
       <ChatProvider conversationId={conversationId} userId={user.id}>
-        <ChatLayout currentUserId={user.id} />
+        <ChatLayout currentUserId={user.id} conversationId={conversationId} />
       </ChatProvider>
     </div>
   )

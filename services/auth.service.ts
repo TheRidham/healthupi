@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseClient } from '@/lib/supabase-client'
 import { formatPhoneForDB, validateIndianPhone } from '@/lib/utils/phone'
 import type { PatientProfileInput } from '@/types'
 
@@ -33,7 +33,7 @@ export async function createPatientAccount(data: {
     // Use a dummy email for phone-only users
     const dummyEmail = `${formattedPhone.replace('+', '')}@healthupi.temp`
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabaseClient.auth.signUp({
       email: dummyEmail,
       password: randomPassword,
       options: {
@@ -68,7 +68,7 @@ export async function createPatientAccount(data: {
       zip: data.zip || undefined,
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseClient
       .from('patient_profiles')
       .insert(profileData)
       .select()
@@ -85,7 +85,7 @@ export async function createPatientAccount(data: {
       console.error('Profile data being inserted:', profileData)
 
       // Cleanup: Delete auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseClient.auth.admin.deleteUser(authData.user.id)
 
       return { success: false, error: profileError.message || 'Failed to create profile' }
     }
@@ -105,7 +105,7 @@ export async function createPatientAccount(data: {
 }
 
 /**
- * Login existing patient (sets Supabase session)
+ * Login existing patient (sets supabaseClient session)
  */
 export async function loginPatient(
   userId: string,
@@ -113,7 +113,7 @@ export async function loginPatient(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Verify the user exists in patient_profiles
-    const { data: patient, error } = await supabase
+    const { data: patient, error } = await supabaseClient
       .from('patient_profiles')
       .select('user_id')
     .eq('user_id', userId)
@@ -125,10 +125,10 @@ export async function loginPatient(
     }
 
     // Set the auth session using the stored user
-    // Note: This is a workaround. In production with phone auth, use supabase.auth.signInWithOtp()
+    // Note: This is a workaround. In production with phone auth, use supabaseClient.auth.signInWithOtp()
     const formattedPhone = formatPhoneForDB(phone.replace(/\D/g, ''))
 
-    // Supabase session is automatically maintained after signup
+    // supabaseClient session is automatically maintained after signup
     // No need to store in localStorage
     return { success: true }
   } catch (error: any) {
@@ -142,8 +142,8 @@ export async function loginPatient(
  */
 export async function logoutPatient(): Promise<void> {
   try {
-    // Clear Supabase session
-    await supabase.auth.signOut()
+    // Clear supabaseClient session
+    await supabaseClient.auth.signOut()
   } catch (error) {
     console.error('Error logging out:', error)
   }
@@ -182,7 +182,7 @@ export async function updatePatientAccount(
       updateData.date_of_birth = updates.dateOfBirth
     }
 
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await supabaseClient
       .from('patient_profiles')
       .update(updateData)
       .eq('user_id', userId)

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseClient } from '@/lib/supabase-client'
 
 // ============================================================================
 // DOCTOR UTILITIES - MOCK DOCTOR UUID MAPPING
@@ -44,7 +44,7 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
     console.log('[Doctor Utils] Fetching doctor UUID for slug:', decodedId)
 
     // First, try by user_id
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('doctor_profiles')
       .select('user_id')
       .eq('user_id', decodedId)
@@ -63,12 +63,12 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
       const lastName = parts.length > 1 ? parts.slice(1).join(' ') : ''
       
       const query = lastName 
-        ? supabase
+        ? supabaseClient
             .from('doctor_profiles')
             .select('user_id')
             .ilike('first_name', firstName)
             .ilike('last_name', lastName)
-        : supabase
+        : supabaseClient
             .from('doctor_profiles')
             .select('user_id')
             .ilike('first_name', firstName)
@@ -82,7 +82,7 @@ export async function fetchDoctorUuid(doctorIdOrSlug: string): Promise<string | 
     }
 
     // Try to find by first_name alone (for backwards compatibility)
-    const { data: data4 } = await supabase
+    const { data: data4 } = await supabaseClient
       .from('doctor_profiles')
       .select('user_id')
       .ilike('first_name', decodedId.replace(/[-\s]/g, ' '))

@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
 import { Message } from "@/types"
-import { supabase } from "@/lib/supabase"
 import {
   getMessages,
   createMessage,
   markMessagesAsRead,
   subscribeToMessages,
   getConversationParticipants,
+  getUserProfile,
 } from "@/services/chat.service"
 import { useAuth } from "@/providers/authProvider"
 
@@ -17,6 +17,9 @@ interface Participant {
   user_id: string
   role: string
   joined_at: string
+  name?: string
+  photo_url?: string
+  specialization?: string
 }
 
 interface ChatContextValue {
@@ -72,8 +75,24 @@ export const ChatProvider = ({ children, conversationId, userId }: ChatProviderP
       ]) as any
       
       console.log('[ChatProvider] Fetched successfully. Messages:', messagesData.length, 'Participants:', participantsData.length)
+      
+      // Now fetch profile details for each participant
+      const participantsWithProfiles = await Promise.all(
+        participantsData.map(async (p: any) => {
+          const profile = await getUserProfile(p.user_id, p.role)
+          return {
+            ...p,
+            name: profile?.name || p.role,
+            photo_url: profile?.photo_url,
+            specialization: profile?.specialization,
+          }
+        })
+      )
+      
+      console.log('[ChatProvider] Participants with profiles:', participantsWithProfiles)
+      
       setMessages(messagesData)
-      setParticipants(participantsData)
+      setParticipants(participantsWithProfiles)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
       console.error('[ChatProvider] Error fetching messages:', errorMsg)

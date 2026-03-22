@@ -1,6 +1,5 @@
 "use client";
 import { useState, FormEvent } from "react";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { useAuth } from "@/providers/authProvider";
 import Link from "next/link";
+import { supabaseClient } from "@/lib/supabase-client";
 
 export default function SignInForm() {
   const [email, setEmail] = useState("");
@@ -34,7 +34,7 @@ export default function SignInForm() {
     setSuccess("");
 
     // Real Supabase auth
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
     });

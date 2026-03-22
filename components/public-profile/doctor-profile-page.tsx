@@ -152,10 +152,13 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
 
   async function handlePaymentSuccess(appointmentData: any) {
     if (!appointmentData) return;
+    let meetingLink = (doctor?.googleMeetLink ??
+        `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`);
     
     // If this is a chat booking, redirect to chat screen
-    if (appointmentData.serviceName?.toLowerCase() === 'chat' && appointmentData.conversationId) {
+    if (appointmentData.serviceName?.toLowerCase().includes('chat') && appointmentData.conversationId) {
       console.log('[DoctorProfilePage] Redirecting to chat:', appointmentData.conversationId);
+      meetingLink = `${process.env.NEXT_PUBLIC_BASE_URL}/chat/${appointmentData.conversationId}`;
       router.push(`/chat/${appointmentData.conversationId}`);
       return;
     }
@@ -167,10 +170,6 @@ export function DoctorProfilePage({ doctorId }: DoctorProfilePageProps) {
       const formattedDate = format(appointmentDate, "d MMMM yyyy");
       const emailTo = appointmentData.patientEmail ?? user?.email ?? "";
       const nameTo = appointmentData.patientName ?? user?.name ?? "Patient";
-      const meetingLink =
-        doctor?.googleMeetLink ??
-        `${process.env.NEXT_PUBLIC_BASE_URL}/meet/${appointmentData.id}`;
-
       const emailPayload = {
         doctorName: doctor?.name ?? "Doctor",
         specialization: doctor?.specialization ?? "",

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { supabaseClient } from "@/lib/supabase-client"
 import { Message } from "@/types"
 
 
@@ -21,7 +21,7 @@ export async function createConversation(params: {
 }): Promise<{ id: string }> {
   const { appointmentId, type } = params
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("conversations")
     .insert([
       {
@@ -39,7 +39,7 @@ export async function createConversation(params: {
 
 // Fetch a conversation by ID
 export async function getConversation(conversationId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("conversations")
     .select("*")
     .eq("id", conversationId)
@@ -66,7 +66,7 @@ export async function createConversationWithParticipants(params: {
     role: role || "member",
   }))
 
-  const { error } = await supabase.from("conversation_participants").insert(inserts)
+  const { error } = await supabaseClient.from("conversation_participants").insert(inserts)
 
   if (error) throw error
 
@@ -80,7 +80,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
   try {
     console.log('[Chat Service] Fetching messages for conversation:', conversationId)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
@@ -91,7 +91,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
       throw error
     }
 
-    console.log('[Chat Service] Fetched messages:', data)
+    // console.log('[Chat Service] Fetched messages:', data)
     return (data || []).map(mapMessageFromDB);
   } catch (error) {
     console.error('[Chat Service] Exception in getMessages:', error)
@@ -113,7 +113,7 @@ export async function createMessage(params: {
   try {
     console.log('[Chat Service] Creating message:', { conversationId, content, type, senderId })
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("messages")
       .insert([
         {
@@ -147,7 +147,7 @@ export async function markMessagesAsRead(
   conversationId: string,
   userId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from("messages")
     .update({ status: "read" })
     .eq("conversation_id", conversationId)
@@ -167,7 +167,7 @@ export function subscribeToMessages(
   try {
     console.log('[Chat Service] Setting up real-time message subscription for conversation:', conversationId)
 
-    const channel = supabase
+    const channel = supabaseClient
       .channel(`messages:${conversationId}`, {
         config: {
           broadcast: { self: true },
@@ -213,7 +213,7 @@ export function subscribeToMessages(
 
     return () => {
       console.log('[Chat Service] Unsubscribing from messages for conversation:', conversationId)
-      supabase.removeChannel(channel)
+      supabaseClient.removeChannel(channel)
     }
   } catch (error) {
     console.error('[Chat Service] Error setting up subscription:', error)
@@ -222,13 +222,13 @@ export function subscribeToMessages(
 }
 
 /**
- * Get conversation participants
+ * Get conversation participants (basic data only)
  */
 export async function getConversationParticipants(conversationId: string) {
   try {
     console.log('[Chat Service] Fetching participants for conversation:', conversationId)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("conversation_participants")
       .select("id, user_id, role, joined_at")
       .eq("conversation_id", conversationId)
@@ -243,5 +243,58 @@ export async function getConversationParticipants(conversationId: string) {
   } catch (error) {
     console.error("[Chat Service] Exception in getConversationParticipants:", error)
     return []
+  }
+}
+
+/**
+ * Get profile details for a user based on their role
+ */
+export async function getUserProfile(userId: string, role: 'doctor' | 'patient') {
+  try {
+    console.log('[Chat Service] Fetching profile for user:', userId, 'role:', role)
+
+    if (role === 'doctor') {
+      const { data, error } = await supabaseClient
+        .from('doctor_profiles')
+        .select('id, first_name, last_name, photo_url, specialization, user_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (error) {
+        console.error('[Chat Service] Error fetching doctor profile:', error)
+        return null
+      }
+
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        name: `Dr. ${data.first_name} ${data.last_name}`,
+        photo_url: data.photo_url,
+        specialization: data.specialization,
+        role: 'doctor'
+      }
+    } else {
+      const { data, error } = await supabaseClient
+        .from('patient_profiles')
+        .select('id, name, photo_url, user_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (error) {
+        console.error('[Chat Service] Error fetching patient profile:', error)
+        return null
+      }
+
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        name: data.name,
+        photo_url: data.photo_url,
+        role: 'patient'
+      }
+    }
+  } catch (error) {
+    console.error('[Chat Service] Exception in getUserProfile:', error)
+    return null
   }
 }

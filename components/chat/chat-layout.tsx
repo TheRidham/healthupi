@@ -1,33 +1,63 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useChatContext } from "@/providers/ChatProvider"
 import { ChatHeader } from "./chat-header"
 import { Button } from "../ui/button"
 import { ChatWindow } from "./chat-window"
 import { ChatInput } from "./chat-input"
 import { useAuth } from "@/providers/authProvider"
+import { useRouter } from "next/navigation"
 import { Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
-export default function ChatLayout({ currentUserId }: { currentUserId: string }) {
+export default function ChatLayout({ currentUserId, conversationId }: { currentUserId: string; conversationId?: string }) {
   const { messages, loading, error, participants, sendMessage } = useChatContext()
   const { user } = useAuth()
+  const router = useRouter()
+  const [isLeaving, setIsLeaving] = useState(false)
 
   // Get the other participant (the person we're chatting with)
   const otherParticipant = useMemo(() => {
     return participants.find((p) => p.user_id !== currentUserId)
   }, [participants, currentUserId])
 
-  // Determine the title based on participant role
-  const chatTitle = useMemo(() => {
-    if (!otherParticipant) return "Chat"
-    
-    if (otherParticipant.role === "doctor") {
-      return "Doctor"
-    } else if (otherParticipant.role === "patient") {
-      return "Patient"
+  // Determine header details from the other participant
+  const headerDetails = useMemo(() => {
+    if (!otherParticipant) {
+      return {
+        title: "Chat",
+        subtitle: "Loading...",
+        avatarSrc: undefined,
+        avatarFallback: "U",
+      }
     }
-    return "Contact"
+
+    return {
+      title: otherParticipant.name || "Contact",
+      subtitle: otherParticipant.role === "doctor" 
+        ? otherParticipant.specialization || "Doctor"
+        : "Patient",
+      avatarSrc: otherParticipant.photo_url || undefined,
+      avatarFallback: (otherParticipant.name || "U")
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2),
+    }
   }, [otherParticipant])
+
+  // Handler for leaving the conversation
+  const handleLeaveConversation = async () => {
+    setIsLeaving(true)
+    try {
+      console.log('[ChatLayout] Navigating away from conversation')
+      if ( user?.role == 'patient' ) router.push('/profile')
+      else router.push('/dashboard')
+    } catch (err) {
+      console.error('[ChatLayout] Exception navigating away:', err)
+      setIsLeaving(false)
+    }
+  }
 
   if (!currentUserId) {
     return (
@@ -68,13 +98,25 @@ export default function ChatLayout({ currentUserId }: { currentUserId: string })
   return (
     <div className="max-w-3xl mx-auto h-full flex flex-col border rounded-lg overflow-hidden">
       <ChatHeader
-        title={chatTitle}
-        subtitle="Online"
-        avatarSrc="/avatar.png"
-        avatarFallback={chatTitle.substring(0, 2).toUpperCase()}
+        title={headerDetails.title}
+        subtitle={headerDetails.subtitle}
+        avatarSrc={headerDetails.avatarSrc}
+        avatarFallback={headerDetails.avatarFallback}
         rightAction={
-          <Button variant="destructive" size="sm">
-            Leave
+          <Button 
+            variant="destructive" 
+            size="sm"
+            onClick={handleLeaveConversation}
+            disabled={isLeaving}
+          >
+            {isLeaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Leaving...
+              </>
+            ) : (
+              'Leave'
+            )}
           </Button>
         }
       />

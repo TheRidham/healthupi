@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseClient } from '../supabase-client'
 
 // ============================================================================
 // MOCK DATA MAPPINGS FOR DEVELOPMENT
@@ -38,7 +38,7 @@ export async function fetchServiceUuid(serviceId: string, doctorId: string): Pro
 
     console.log('[Service Utils] Fetching service UUID for id:', serviceId, 'doctor:', doctorId)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('services')
       .select('id')
       .eq('id', serviceId)

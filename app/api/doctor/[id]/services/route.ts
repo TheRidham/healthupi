@@ -31,8 +31,11 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
 
+    console.log('[Services API] GET request - doctorId:', doctorId, 'action:', action)
+
     const doctor = await findDoctor(doctorId)
     if (!doctor) {
+      console.log('[Services API] Doctor not found:', doctorId)
       return errorResponse('Doctor not found', 404)
     }
 
@@ -56,24 +59,40 @@ export async function GET(
       .eq('doctor_id', doctor.user_id)
 
     if (servicesError) {
+      console.error('[Services API] Error fetching doctor services:', servicesError)
       return errorResponse(servicesError.message, 500)
     }
 
     if (action === 'available') {
       const existingServiceIds = (doctorServices || []).map((ds: any) => ds.services.id)
 
+      // If no services added yet, return all services
       if (existingServiceIds.length === 0) {
-        const { data: allServices } = await supabaseAdmin
+        const { data: allServices, error: allServicesError } = await supabaseAdmin
           .from('services')
           .select('*')
+        
+        if (allServicesError) {
+          console.error('[Services API] Error fetching all services:', allServicesError)
+          return errorResponse(allServicesError.message, 500)
+        }
         return successResponse(allServices || [])
       }
 
-      const { data: allServices } = await supabaseAdmin
-        .from('services')
-        .select('*')
-        .not('id', 'in', `(${existingServiceIds.map((id: string) => `"${id}"`).join(',')})`)
+      // Build query to exclude existing services
+      let query = supabaseAdmin.from('services').select('*')
+      
+      // Use filter instead of .not() for better compatibility
+      for (const id of existingServiceIds) {
+        query = query.neq('id', id)
+      }
 
+      const { data: allServices, error: filterError } = await query
+
+      if (filterError) {
+        console.error('[Services API] Error filtering services:', filterError)
+        return errorResponse(filterError.message, 500)
+      }
       return successResponse(allServices || [])
     }
 
@@ -95,6 +114,8 @@ export async function GET(
     const regularServices = formattedServices.filter((s: any) => s.type === 'service')
     const followUpServices = formattedServices.filter((s: any) => s.type === 'followup')
 
+    console.log('[Services API] Returning services - regular:', regularServices.length, 'followups:', followUpServices.length)
+
     return successResponse({
       doctor: {
         user_id: doctor.user_id,
@@ -105,6 +126,7 @@ export async function GET(
       all: formattedServices,
     })
   } catch (error) {
+    console.error('[Services API] Exception in GET:', error)
     return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
@@ -164,9 +186,14 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('[Services API] POST request starting...')
     const authUser = await requireDoctor(request)
+    console.log('[Services API] Auth passed, doctor user:', authUser.id)
+    
     const { id: doctorId } = await context.params
     const body = await request.json()
+
+    console.log('[Services API] POST body:', body)
 
     const validation = validateServiceInput(body)
     if (!validation.valid) {
@@ -177,15 +204,18 @@ export async function POST(
     const doctor = await findDoctor(doctorId)
 
     if (!doctor) {
+      console.error('[Services API] Doctor not found:', doctorId)
       return errorResponse('Doctor not found', 404)
     }
 
     if (doctor.user_id !== authUser.id) {
+      console.error('[Services API] Auth mismatch - doctor user_id:', doctor.user_id, 'auth id:', authUser.id)
       return errorResponse('Cannot modify another doctor\'s data', 403)
     }
 
     let finalFee = fee
     if (!finalFee) {
+      console.log('[Services API] Fetching default price for service:', service_id)
       const { data: service } = await supabaseAdmin
         .from('services')
         .select('price')
@@ -193,19 +223,28 @@ export async function POST(
         .single()
 
       finalFee = service?.price || 0
+      console.log('[Services API] Final fee:', finalFee)
     }
 
-    const { data: existing } = await supabaseAdmin
+    console.log('[Services API] Checking if service already exists...')
+    const { data: existing, error: existError } = await supabaseAdmin
       .from('doctor_services')
       .select('id')
       .eq('doctor_id', doctor.user_id)
       .eq('service_id', service_id)
       .single()
 
+    if (existError && existError.code !== 'PGRST116') {
+      // PGRST116 is "no rows found" which is expected
+      console.error('[Services API] Error checking for existing service:', existError)
+    }
+
     if (existing) {
+      console.log('[Services API] Service already exists')
       return errorResponse('Service already added', 400)
     }
 
+    console.log('[Services API] Inserting new service...')
     const { data: newService, error: insertError } = await supabaseAdmin
       .from('doctor_services')
       .insert({
@@ -218,11 +257,14 @@ export async function POST(
       .single()
 
     if (insertError) {
+      console.error('[Services API] Insert error:', insertError)
       return errorResponse(insertError.message, 500)
     }
 
+    console.log('[Services API] Successfully added service:', newService)
     return successResponse(newService, 201)
   } catch (error) {
+    console.error('[Services API] POST Exception:', error instanceof Error ? error.message : String(error))
     if (error instanceof Error && error.name === 'AuthError') {
       return handleAuthError(error)
     }

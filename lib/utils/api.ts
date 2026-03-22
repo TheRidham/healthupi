@@ -1,22 +1,22 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseClient } from '@/lib/supabase-client'
 
 interface FetchOptions extends RequestInit {
   requiresAuth?: boolean
 }
 
 async function getSessionToken(): Promise<string | null> {
-  let { data: { session } } = await supabase.auth.getSession()
+  let { data: { session } } = await supabaseClient.auth.getSession()
   
   if (!session) {
     await new Promise(resolve => setTimeout(resolve, 100))
-    const { data } = await supabase.auth.getSession()
+    const { data } = await supabaseClient.auth.getSession()
     session = data.session
   }
   
   if (!session) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabaseClient.auth.getUser()
     if (user) {
-      const { data } = await supabase.auth.getSession()
+      const { data } = await supabaseClient.auth.getSession()
       session = data.session
     }
   }

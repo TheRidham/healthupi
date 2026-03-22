@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import MeetingProvider from "@/modules/meeting/components/MeetingProvider";
 import WaitingScreen from "@/modules/meeting/components/WaitingScreen";
 import { toast } from "sonner";
+import { supabaseClient } from "@/lib/supabase-client";
 
 type Props = {
   appointmentId: string;
@@ -26,7 +26,7 @@ export default function MeetingLoader({ appointmentId }: Props) {
         const {
           data: { user },
           error: authError,
-        } = await supabase.auth.getUser();
+        } = await supabaseClient.auth.getUser();
 
         if (authError || !user) {
           setError("Please login first to join the meeting");

@@ -11,6 +11,8 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
 
+    console.log('[Public Timeslots API] GET request - doctorId:', doctorId, 'date:', date)
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(doctorId)
 
     let doctorQuery = supabaseAdmin
@@ -36,8 +38,11 @@ export async function GET(
     const { data: doctor, error: doctorError } = await doctorQuery.single()
 
     if (doctorError || !doctor) {
+      console.log('[Public Timeslots API] Doctor not found:', doctorId, doctorError)
       return errorResponse('Doctor not found', 404)
     }
+
+    console.log('[Public Timeslots API] Found doctor:', doctor.user_id)
 
     const { data: timeSlots, error: slotsError } = await supabaseAdmin
       .from('time_slots')
@@ -48,8 +53,11 @@ export async function GET(
       .order('start_time')
 
     if (slotsError) {
+      console.error('[Public Timeslots API] Error fetching time slots:', slotsError)
       return errorResponse(slotsError.message, 500)
     }
+
+    console.log('[Public Timeslots API] Found time slots:', timeSlots?.length || 0)
 
     let appointments: any[] = []
     if (date) {
@@ -60,8 +68,11 @@ export async function GET(
         .eq('appointment_date', date)
         .in('status', ['pending', 'confirmed'])
 
-      if (!aptError && appointmentsData) {
+      if (aptError) {
+        console.error('[Public Timeslots API] Error fetching appointments:', aptError)
+      } else if (appointmentsData) {
         appointments = appointmentsData
+        console.log('[Public Timeslots API] Found appointments for date:', appointments.length)
       }
     }
 
@@ -79,6 +90,8 @@ export async function GET(
       groupedSlots[day.toString()] = formattedSlots.filter(s => s.day_of_week === day)
     })
 
+    console.log('[Public Timeslots API] Returning response with', formattedSlots.length, 'slots')
+
     return successResponse({
       doctor: {
         user_id: doctor.user_id,
@@ -89,6 +102,7 @@ export async function GET(
       appointments: appointments || [],
     })
   } catch (error) {
+    console.error('[Public Timeslots API] Exception in GET:', error)
     return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
