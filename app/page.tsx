@@ -75,7 +75,7 @@ export default function HomePage() {
           >
             <CardContent className="p-6 flex flex-col items-center text-center gap-4">
               <div className="size-14 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-                <User className="size-7 text-accent group-hover:text-accent-foreground" />
+                <User className="size-7 text-accent-foreground" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
