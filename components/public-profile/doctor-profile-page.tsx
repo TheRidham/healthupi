@@ -363,7 +363,7 @@ function BookingView({
     <>
       <DoctorHeroCard doctor={doctor} />
 
-      <Button
+      {/* <Button
         variant="ghost"
         size="sm"
         onClick={isFollowUp ? onBackToServices : onBackToProfile}
@@ -371,7 +371,7 @@ function BookingView({
       >
         <ArrowRight className="size-3.5 rotate-180" />
         {isFollowUp ? "Back to Services" : "Back to Profile"}
-      </Button>
+      </Button> */}
 
       <ServiceSelector
         services={serviceList}
@@ -415,7 +415,7 @@ function ProfileView({ doctor, onBook }: { doctor: any; onBook: () => void }) {
     <>
       <DoctorHeroCard doctor={doctor} />
 
-      <Card className="py-4 border-primary/20 bg-primary/[0.02]">
+      {/* <Card className="py-4 border-primary/20 bg-primary/[0.02]">
         <CardContent className="px-5 py-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">
@@ -430,7 +430,7 @@ function ProfileView({ doctor, onBook }: { doctor: any; onBook: () => void }) {
             <ArrowRight className="size-3.5" />
           </Button>
         </CardContent>
-      </Card>
+      </Card> */}
 
       <DoctorInfoCards doctor={doctor} />
       <ClinicGallery images={doctor.galleryImages ?? []} />

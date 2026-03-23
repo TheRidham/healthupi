@@ -47,7 +47,7 @@ export function useBookingState(): UseBookingStateReturn {
   const { pendingBooking, clearPendingBooking } = useBooking();
 
   const [view, setView] = useState<ViewMode>("main");
-  const [isBookingMode, setIsBookingMode] = useState(false);
+  const [isBookingMode, setIsBookingMode] = useState(true);
   const [isFollowUp, setIsFollowUp] = useState(false);
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date>(today);
