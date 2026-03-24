@@ -47,7 +47,7 @@ export default function SignInForm() {
       // Wait a moment for context to update
       setSuccess(`Welcome back!`);
       setTimeout(() => {
-        router.push(`/dashboard/${doctorId}`);
+        router.push(`/doctor-dashboard`);
       }, 500);
     }
   };
