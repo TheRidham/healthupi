@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from("doctor_profiles")
       .select(
-        "id, first_name, last_name, designation, specialization, sub_specialization, experience_years, rating, photo_url, clinic_name, city, state, availability, patients_served"
+        "user_id, first_name, last_name, designation, specialization, sub_specialization, experience_years, rating, photo_url, clinic_name, city, state, availability, patients_served"
       )
       .order("created_at", { ascending: false })
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     }
 
     const doctors = (data ?? []).map((doc) => ({
-      id: doc.id,
+      id: doc.user_id,
       name: [doc.first_name, doc.last_name].filter(Boolean).join(" "),
       title: doc.designation ?? "Doctor",
       specialization: doc.specialization ?? "General",

@@ -84,7 +84,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 className="w-full group-hover:bg-accent group-hover:text-accent-foreground"
-                onClick={() => router.push("/doctors-list")}
+                onClick={() => router.push("/doctors")}
               >
                 Continue as Patient
                 <ArrowRight className="size-4 ml-2" />
