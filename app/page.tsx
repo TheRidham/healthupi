@@ -21,9 +21,6 @@ export default function HomePage() {
   const router = useRouter();
   const [showLogin, setShowLogin] = useState(false);
 
-  function handlePatientFlow() {
-    router.push("/doctors");
-  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-primary/5 via-background to-accent/5">
@@ -71,7 +68,6 @@ export default function HomePage() {
 
           <Card
             className="group cursor-pointer hover:shadow-lg hover:border-accent/30 transition-all"
-            onClick={handlePatientFlow}
           >
             <CardContent className="p-6 flex flex-col items-center text-center gap-4">
               <div className="size-14 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
@@ -88,6 +84,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 className="w-full group-hover:bg-accent group-hover:text-accent-foreground"
+                onClick={() => router.push("/doctors-list")}
               >
                 Continue as Patient
                 <ArrowRight className="size-4 ml-2" />

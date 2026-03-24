@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 
-import StepPersonal from "./StepProfessional";
+import StepPersonal from "./StepPersonal";
 import StepProfessional from "./StepProfessional";
 import StepPractice from "./StepPractice";
 import StepContact from "./StepContact";
@@ -186,7 +186,7 @@ export default function DoctorOnboardingPage() {
 
       const { data: profile, error: profileError } = await supabase
         .from("doctor_profiles")
-        .insert(payload)
+        .insert({...payload, user_id: userId})
         .select("id")
         .single();
 

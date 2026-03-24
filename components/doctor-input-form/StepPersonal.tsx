@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { useState, KeyboardEvent } from "react";
 import type { DoctorFormData } from "./Doctoronboarding";
+import SingleImageUploader from "./SingleImageUploader";
 
 
 type Props = {
@@ -38,16 +39,15 @@ export default function StepPersonal({ data, updateFields }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Photo URL */}
-      <div className="space-y-1.5">
-        <Label htmlFor="photo_url">Profile Photo URL</Label>
-        <Input
-          id="photo_url"
-          placeholder="https://example.com/photo.jpg"
-          value={data.photo_url}
-          onChange={(e) => updateFields({ photo_url: e.target.value })}
-        />
-      </div>
+       {/* Profile Photo Upload */}
+      <SingleImageUploader
+        bucket="doctor-assets"
+        folder="profile-photos"
+        value={data.photo_url}
+        onChange={(url) => updateFields({ photo_url: url })}
+        label="Profile Photo"
+        shape="circle"
+      />
 
       {/* Name */}
       <div className="grid grid-cols-2 gap-4">
