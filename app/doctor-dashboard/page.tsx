@@ -1,24 +1,25 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { createClientBrowser } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { User, LayoutGrid, LogOut, Stethoscope } from "lucide-react"
-import ProfileTab from "@/components/doctor-dashboard/ProfileTab"
-import ServicesTab from "@/components/doctor-dashboard/ServiceTab"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClientBrowser } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { User, LayoutGrid, LogOut, Stethoscope, Calendar } from "lucide-react";
+import ProfileTab from "@/components/doctor-dashboard/ProfileTab";
+import ServicesTab from "@/components/doctor-dashboard/ServiceTab";
+import TimeSlotsTab from "@/components/doctor-dashboard/TimeslotTab";
 
-type Tab = "profile" | "services"
+type Tab = "profile" | "services" | "availability";
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const supabase = createClientBrowser()
-  const [activeTab, setActiveTab] = useState<Tab>("profile")
+  const router = useRouter();
+  const supabase = createClientBrowser();
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
-  }
+    await supabase.auth.signOut();
+    router.push("/");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -29,7 +30,9 @@ export default function DashboardPage() {
             <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
               <Stethoscope className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-gray-900 text-sm">Doctor Portal</span>
+            <span className="font-semibold text-gray-900 text-sm">
+              Doctor Portal
+            </span>
           </div>
 
           <Button
@@ -59,14 +62,21 @@ export default function DashboardPage() {
             icon={<LayoutGrid className="w-4 h-4" />}
             label="Services"
           />
+          <TabButton
+            active={activeTab === "availability"}
+            onClick={() => setActiveTab("availability")}
+            icon={<Calendar className="w-4 h-4" />}
+            label="Availability"
+          />
         </div>
 
         {/* Tab Content */}
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "services" && <ServicesTab />}
+        {activeTab === "availability" && <TimeSlotsTab />}
       </div>
     </div>
-  )
+  );
 }
 
 function TabButton({
@@ -75,10 +85,10 @@ function TabButton({
   icon,
   label,
 }: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
 }) {
   return (
     <button
@@ -92,5 +102,5 @@ function TabButton({
       {icon}
       {label}
     </button>
-  )
+  );
 }
