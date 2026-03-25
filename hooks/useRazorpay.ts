@@ -103,11 +103,6 @@ export function usePayment() {
           order_id: orderId,
           name: options.name,
           description: options.description,
-
-          prefill: {
-            name: options.name,
-          },
-
           theme: {
             color: "#6366f1",
           },

@@ -36,7 +36,6 @@ export default function HomePage() {
             Your complete healthcare platform
           </p>
         </div>
-
         <div className="grid gap-4 md:grid-cols-2 max-w-3xl mx-auto">
           <Card
             className="group cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all"

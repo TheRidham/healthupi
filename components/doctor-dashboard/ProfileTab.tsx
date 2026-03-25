@@ -20,6 +20,7 @@ import {
   Loader2,
   AlertCircle,
   ExternalLink,
+  IndianRupee,
 } from "lucide-react";
 
 type Profile = {
@@ -49,6 +50,7 @@ type Profile = {
   rating: number | null;
   photo_url: string | null;
   clinic_photo_urls: string[];
+  is_paid: boolean;
 };
 
 export default function ProfileTab() {
@@ -247,6 +249,15 @@ export default function ProfileTab() {
           </div>
         </div>
       </div>
+
+       
+          {!profile.is_paid && (
+            <Button size="sm" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white gap-1.5" asChild>
+              <Link href="/doctor-dashboard/pay">
+                <IndianRupee className="w-3.5 h-3.5" /> Pay Now
+              </Link>
+            </Button>
+          )}
 
       {/* ── Google Meet Highlight ────────────────────────────────────────── */}
       {isEditingMeet ? (
