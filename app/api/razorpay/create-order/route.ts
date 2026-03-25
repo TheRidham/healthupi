@@ -40,6 +40,50 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
+
+      // ✅ 3a. Ensure patient exists in patient_profiles
+      const { data: existingPatient, error: fetchError } = await supabaseAdmin
+        .from("patient_profiles")
+        .select("id")
+        .eq("user_id", patient_id)
+        .single();
+
+      // If patient doesn't exist, create minimal entry
+      if (!existingPatient && !fetchError?.message?.includes("no rows")) {
+        // Fetch error but not "no rows" = different error
+        return NextResponse.json(
+          { error: "Failed to check patient" },
+          { status: 500 },
+        );
+      }
+
+      if (!existingPatient) {
+        // Create minimal patient profile with provided metadata or defaults
+        const { error: insertError } = await supabaseAdmin
+          .from("patient_profiles")
+          .insert({
+            user_id: patient_id,
+            name: metadata.patientName || "Patient",
+            phone: metadata.phone || "",
+            email: metadata.email || "",
+            gender: null,
+            date_of_birth: null,
+            address: null,
+            city: null,
+            state: null,
+            zip: null,
+            allergies: null,
+            medical_conditions: null,
+          });
+
+        if (insertError) {
+          console.error("Failed to create patient profile:", insertError);
+          return NextResponse.json(
+            { error: "Failed to create patient profile" },
+            { status: 500 },
+          );
+        }
+      }
     }
 
     if (type === "registration") {
@@ -93,6 +137,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error || !order) {
+      console.log(error)
       return NextResponse.json(
         { error: "Failed to create order" },
         { status: 500 },
