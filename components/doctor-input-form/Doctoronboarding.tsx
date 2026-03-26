@@ -192,7 +192,7 @@ export default function DoctorOnboardingPage() {
 
       if (profileError) throw profileError;
 
-      setDoctorId(profile.id);
+      setDoctorId(userId);
       next(); // → payment step
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
@@ -269,8 +269,8 @@ export default function DoctorOnboardingPage() {
               doctorName={`${formData.first_name} ${formData.last_name}`.trim()}
               email={formData.account_email}
               phone={formData.phone}
-              onPayNowSuccess={() => router.push("/dashboard?payment=success")}
-              onPayLater={() => router.push("/dashboard?payment=pending")}
+              onPayNowSuccess={() => router.push("/doctor-dashboard")}
+              onPayLater={() => router.push("/doctor-dashboard")}
             />
           )}
 

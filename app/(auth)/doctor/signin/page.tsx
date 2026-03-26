@@ -136,10 +136,10 @@ export default function SignInForm() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full text-sm capitalize"
                 onClick={() => router.push("/doctor/signup")}
               >
-                New to HealthUPI? Register here
+                new to healthupi ? create an account
               </Button>
             </CardFooter>
           </form>
