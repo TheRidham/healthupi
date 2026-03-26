@@ -23,6 +23,7 @@ type Choice = "now" | "later" | null;
 
 type DoctorInfo = {
   id: string;
+  user_id: string;
   first_name: string;
   last_name: string | null;
   email: string;
@@ -64,11 +65,11 @@ export default function DashboardPayPage() {
       description: "One-time registration fee",
       metadata: {
         type: "registration",
-        doctor_id: doctor.id,
+        doctor_id: doctor.user_id,
       },
       onSuccess: () => {
         setPaymentState("success");
-        setTimeout(() => router.push("/dashboard?payment=success"), 1500);
+        setTimeout(() => router.replace("/doctor-dashboard"), 1500);
       },
       onError: (message) => {
         setPaymentState("idle");
@@ -314,7 +315,7 @@ export default function DashboardPayPage() {
             <Button
               variant="outline"
               className="w-full h-11 text-base font-medium border-amber-400 text-amber-700 hover:bg-amber-50"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/doctor-dashboard")}
             >
               <Clock className="w-4 h-4 mr-2" />
               Remind Me Later

@@ -139,7 +139,9 @@ export default function ProfileTab() {
       setIsEditingMeet(false);
     } catch (err) {
       setMeetError(
-        err instanceof Error ? err.message : "Failed to update Google Meet link"
+        err instanceof Error
+          ? err.message
+          : "Failed to update Google Meet link",
       );
     } finally {
       setMeetSaving(false);
@@ -250,14 +252,26 @@ export default function ProfileTab() {
         </div>
       </div>
 
-       
-          {!profile.is_paid && (
-            <Button size="sm" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white gap-1.5" asChild>
-              <Link href="/doctor-dashboard/pay">
-                <IndianRupee className="w-3.5 h-3.5" /> Pay Now
-              </Link>
-            </Button>
-          )}
+      {!profile.is_paid && (
+        <div className="bg-amber-100 rounded-lg p-2 flex items-center justify-between">
+          <p
+            className={`text-sm font-semibold ${profile.is_paid ? "text-green-800" : "text-amber-600"}`}
+          >
+            {profile.is_paid
+              ? "Registration fee paid"
+              : "Registration fee pending"}
+          </p>
+          <Button
+            size="sm"
+            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white gap-1.5"
+            asChild
+          >
+            <Link href="/doctor-dashboard/pay">
+              <IndianRupee className="w-3.5 h-3.5" /> Pay Now
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* ── Google Meet Highlight ────────────────────────────────────────── */}
       {isEditingMeet ? (
@@ -267,8 +281,12 @@ export default function ProfileTab() {
               <Video className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-blue-900">Update Google Meet link</p>
-              <p className="text-xs text-blue-600">Paste a valid meeting URL for online consultations</p>
+              <p className="text-sm font-semibold text-blue-900">
+                Update Google Meet link
+              </p>
+              <p className="text-xs text-blue-600">
+                Paste a valid meeting URL for online consultations
+              </p>
             </div>
           </div>
 
@@ -289,14 +307,23 @@ export default function ProfileTab() {
               >
                 Cancel
               </Button>
-              <Button size="sm" className="gap-1.5" onClick={handleSaveMeetLink} disabled={meetSaving}>
-                {meetSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSaveMeetLink}
+                disabled={meetSaving}
+              >
+                {meetSaving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : null}
                 Save
               </Button>
             </div>
           </div>
 
-          {meetError ? <p className="text-xs text-red-600">{meetError}</p> : null}
+          {meetError ? (
+            <p className="text-xs text-red-600">{meetError}</p>
+          ) : null}
         </div>
       ) : profile.google_meet_link ? (
         <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 flex items-center justify-between gap-4">
@@ -305,12 +332,21 @@ export default function ProfileTab() {
               <Video className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-blue-900">Google Meet ready</p>
-              <p className="text-xs text-blue-600 truncate max-w-xs">{profile.google_meet_link}</p>
+              <p className="text-sm font-semibold text-blue-900">
+                Google Meet ready
+              </p>
+              <p className="text-xs text-blue-600 truncate max-w-xs">
+                {profile.google_meet_link}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={startEditMeet}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={startEditMeet}
+            >
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
             <Button
@@ -336,13 +372,20 @@ export default function ProfileTab() {
               <Video className="w-4 h-4 text-gray-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">No Google Meet link</p>
+              <p className="text-sm font-medium text-gray-600">
+                No Google Meet link
+              </p>
               <p className="text-xs text-gray-400">
                 Add one so patients can join online consultations
               </p>
             </div>
           </div>
-          <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={startEditMeet}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-1.5"
+            onClick={startEditMeet}
+          >
             <Pencil className="w-3.5 h-3.5" /> Add Link
           </Button>
         </div>
