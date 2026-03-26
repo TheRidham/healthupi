@@ -4,12 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClientBrowser } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { User, LayoutGrid, LogOut, Stethoscope, Calendar } from "lucide-react";
+import {
+  User,
+  LayoutGrid,
+  LogOut,
+  Stethoscope,
+  Calendar,
+  CalendarDays,
+} from "lucide-react";
 import ProfileTab from "@/components/doctor-dashboard/ProfileTab";
 import ServicesTab from "@/components/doctor-dashboard/ServiceTab";
 import TimeSlotsTab from "@/components/doctor-dashboard/TimeslotTab";
+import ScheduleTab from "@/components/doctor-dashboard/ScheduleTab";
 
-type Tab = "profile" | "services" | "availability";
+type Tab = "profile" | "services" | "availability" | "schedule";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -68,12 +76,19 @@ export default function DashboardPage() {
             icon={<Calendar className="w-4 h-4" />}
             label="Availability"
           />
+          <TabButton
+            active={activeTab === "schedule"}
+            onClick={() => setActiveTab("schedule")}
+            icon={<CalendarDays className="w-4 h-4" />}
+            label="Schedule"
+          />
         </div>
 
         {/* Tab Content */}
         {activeTab === "profile" && <ProfileTab />}
         {activeTab === "services" && <ServicesTab />}
         {activeTab === "availability" && <TimeSlotsTab />}
+        {activeTab === "schedule" && <ScheduleTab />}
       </div>
     </div>
   );
