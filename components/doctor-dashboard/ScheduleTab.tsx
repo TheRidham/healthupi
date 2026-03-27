@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +26,12 @@ import {
   IndianRupee,
   Phone,
   Mail,
+  MessageCircle,
 } from "lucide-react";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
+import { useAuth } from "@/context/AuthProvider";
+import { getOrCreateConversationForAppointment } from "@/services/chat.service";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +48,7 @@ type Appointment = {
     email: string | null;
     phone: string | null;
     photo_url: string | null;
+    user_id: string;
   };
   service: {
     name: string;
@@ -71,6 +77,23 @@ function formatDateLabel(dateStr: string) {
   if (isTomorrow(date)) return "Tomorrow";
   return format(date, "EEE, MMM d");
 }
+
+function isAppointmentTimeArrived(appointmentDate: string, startTime: string): boolean {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const appointmentDateTime = parseISO(appointmentDate);
+  appointmentDateTime.setHours(hours, minutes, 0, 0);
+  
+  const now = new Date();
+  return now >= appointmentDateTime;
+}
+
+function getAppointmentDateTime(appointmentDate: string, startTime: string): Date {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const appointmentDateTime = parseISO(appointmentDate);
+  appointmentDateTime.setHours(hours, minutes, 0, 0);
+  return appointmentDateTime;
+}
+
 
 const STATUS_CONFIG: Record<
   Appointment["status"],
@@ -113,13 +136,21 @@ function AppointmentCard({
   apt,
   showDate = false,
   onClick,
+  onStartChat,
 }: {
   apt: Appointment;
   showDate?: boolean;
   onClick: () => void;
+  onStartChat?: (apt: Appointment) => void;
 }) {
   const status = STATUS_CONFIG[apt.status];
   const payment = PAYMENT_CONFIG[apt.payment_status];
+  const isChatConsultation = apt.service.name?.toLowerCase().includes("chat");
+
+  const handleChatClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStartChat?.(apt);
+  };
 
   return (
     <div
@@ -185,6 +216,19 @@ function AppointmentCard({
             <IndianRupee className="w-2.5 h-2.5" />
             {payment.label}
           </span>
+
+          {/* Chat button (if chat consultation) */}
+          {isChatConsultation && apt.status === "confirmed" && (
+            <Button
+              onClick={handleChatClick}
+              size="sm"
+              variant="outline"
+              className="ml-auto text-xs h-6 gap-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+            >
+              <MessageCircle className="w-3 h-3" />
+              Chat
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -198,11 +242,13 @@ function AppointmentDialog({
   open,
   onClose,
   onStatusChange,
+  onStartChat,
 }: {
   apt: Appointment | null;
   open: boolean;
   onClose: () => void;
   onStatusChange: (id: string, status: Appointment["status"]) => void;
+  onStartChat?: (apt: Appointment) => void;
 }) {
   const [updating, setUpdating] = useState(false);
 
@@ -212,6 +258,7 @@ function AppointmentDialog({
   const payment = PAYMENT_CONFIG[apt.payment_status];
   const canComplete = apt.status === "confirmed";
   const canCancel = apt.status === "confirmed" || apt.status === "rescheduled";
+  const isChatConsultation = apt.service.type?.toLowerCase() === "chat";
 
   const handleStatus = async (newStatus: Appointment["status"]) => {
     setUpdating(true);
@@ -229,6 +276,10 @@ function AppointmentDialog({
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleStartChat = () => {
+    onStartChat?.(apt);
   };
 
   return (
@@ -315,6 +366,20 @@ function AppointmentDialog({
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {isChatConsultation && apt.status === "confirmed" && (
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 gap-1.5"
+              onClick={handleStartChat}
+              disabled={updating}
+            >
+              {updating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageCircle className="w-4 h-4" />
+              )}
+              Start Chat
+            </Button>
+          )}
           {canComplete && (
             <Button
               className="w-full bg-green-600 hover:bg-green-700 gap-1.5"
@@ -360,6 +425,8 @@ function Detail({ label, value }: { label: string; value: string }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ScheduleTab() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [appointments, setAppointments] = useState<GroupedAppointments>({
     today: [],
     upcoming: [],
@@ -370,6 +437,7 @@ export default function ScheduleTab() {
   const [activeFilter, setActiveFilter] = useState<
     "all" | "confirmed" | "completed" | "cancelled"
   >("all");
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard/appointments")
@@ -388,6 +456,68 @@ export default function ScheduleTab() {
       upcoming: prev.upcoming.map((a) => (a.id === id ? { ...a, status } : a)),
     }));
   };
+
+  const handleStartChat = useCallback(
+    async (apt: Appointment) => {
+      try {
+        // Check if appointment time has arrived
+        if (!isAppointmentTimeArrived(apt.appointment_date, apt.start_time)) {
+          const appointmentTime = getAppointmentDateTime(
+            apt.appointment_date,
+            apt.start_time
+          );
+          toast(
+            `Chat will be available from ${appointmentTime.toLocaleTimeString(
+              "en-US",
+              { hour: "2-digit", minute: "2-digit" }
+            )}`
+          );
+          return;
+        }
+
+        if (!user?.id) {
+          toast("You must be logged in to start a chat");
+          return;
+        }
+
+        // console.log("[ScheduleTab] Starting chat for appointment:", apt);
+        // console.log("[ScheduleTab] Doctor ID:", user.id);
+        // console.log("[ScheduleTab] Patient ID:", apt.patient.user_id);
+
+        setChatLoading(true);
+
+        // Always include both participants for chat header to show other participant details
+        const participants = [
+          { userId: user.id, role: "doctor" },
+          { userId: apt.patient.user_id, role: "patient" },
+        ];
+
+        // console.log("[ScheduleTab] Participants to be added:", participants);
+
+        // Get or create conversation with doctor and patient as participants
+        const conversationId = await getOrCreateConversationForAppointment({
+          appointmentId: apt.id,
+          type: "chat",
+          participants,
+        });
+
+        // console.log(
+        //   "[ScheduleTab] Chat opened successfully, redirecting to:",
+        //   conversationId
+        // );
+
+        // Close dialog and redirect
+        setSelectedApt(null);
+        router.push(`/chat/${conversationId}`);
+      } catch (err) {
+        console.error("[ScheduleTab] Error starting chat:", err);
+        toast("Failed to start chat. Please try again.");
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [user?.id, router]
+  );
 
   const filterApts = (list: Appointment[]) =>
     activeFilter === "all"
@@ -481,6 +611,7 @@ export default function ScheduleTab() {
                 key={apt.id}
                 apt={apt}
                 onClick={() => setSelectedApt(apt)}
+                onStartChat={handleStartChat}
               />
             ))}
           </div>
@@ -517,6 +648,7 @@ export default function ScheduleTab() {
                 apt={apt}
                 showDate
                 onClick={() => setSelectedApt(apt)}
+                onStartChat={handleStartChat}
               />
             ))}
           </div>
@@ -529,6 +661,7 @@ export default function ScheduleTab() {
         open={!!selectedApt}
         onClose={() => setSelectedApt(null)}
         onStatusChange={handleStatusChange}
+        onStartChat={handleStartChat}
       />
     </div>
   );
