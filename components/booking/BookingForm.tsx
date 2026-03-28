@@ -58,6 +58,7 @@ export default function BookingForm({
         const response = await fetch(`/api/patient/profile?userId=${user.id}`);
         if (response.ok) {
           const data = await response.json();
+          console.log("Patient profile response:", data);
           if (data.success && data.data) {
             const profile = data.data;
             setPatientProfile(profile);
