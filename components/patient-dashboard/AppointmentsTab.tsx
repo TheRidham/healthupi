@@ -214,15 +214,9 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
       }
 
       setChatLoading(true);
-      const participants = [
-        { userId: appointment.doctor_id, role: "doctor" },
-        { userId: appointment.patient_id, role: "patient" },
-      ];
 
       const conversationId = await getOrCreateConversationForAppointment({
         appointmentId: appointment.id,
-        type: "chat",
-        participants,
       });
 
       router.push(`/chat/${conversationId}`);

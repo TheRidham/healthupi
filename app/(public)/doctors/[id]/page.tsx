@@ -19,6 +19,7 @@ import PaymentModal from "@/components/booking/PaymentModal";
 import SuccessModal from "@/components/booking/SuccessModal";
 import { Service } from "@/components/doctor-profile-public/services.utils";
 import { SelectedSlot, BookingFormData } from "@/types/booking";
+import { getOrCreateConversationForAppointment } from "@/services/chat.service";
 
 // ─── Step type ────────────────────────────────────────────────────────────────
 // null        = profile view / service selection (step 1)
@@ -273,6 +274,25 @@ export default function PublicDoctorPage() {
       }
 
       const data = await response.json();
+
+      if (!user?.id) {
+        throw new Error("User ID is required to create appointment");
+      }
+
+      if(selectedServices[0].name.toLocaleLowerCase().includes('chat')) {
+        const participants = [
+          { userId: doctorId, role: "doctor" },
+          { userId: user.id, role: "patient" },
+        ];
+
+        // create conversation with doctor and patient as participants
+        await getOrCreateConversationForAppointment({
+          appointmentId: data.data.appointmentId,
+          type: "chat",
+          participants,
+        });
+      }
+
       setAppointmentId(data.data.appointmentId);
       setConfirmationNumber(data.data.confirmationNumber);
       setBookingStep("success");
