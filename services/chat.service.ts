@@ -64,7 +64,7 @@ export async function getConversation(conversationId: string) {
 export async function getOrCreateConversationForAppointment(params: {
   appointmentId: string
   type?: string
-  participants: { userId: string; role?: string }[]
+  participants?: { userId: string; role?: string }[]
 }): Promise<string> {
   const { appointmentId, type = "chat", participants } = params
 
@@ -93,6 +93,9 @@ export async function getOrCreateConversationForAppointment(params: {
 
     // No existing conversation, create a new one
     // console.log('[Chat Service] No existing conversation found, creating new one with participants')
+    if(!participants) {
+      throw new Error("Please provide participants of conversation")
+    }
     return await createConversationWithParticipants({
       appointmentId,
       type,
