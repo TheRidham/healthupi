@@ -26,6 +26,7 @@ export async function GET() {
       .select(
         `
         id,
+        patient_id,
         appointment_date,
         start_time,
         end_time,
@@ -35,7 +36,8 @@ export async function GET() {
         patient_profiles!fk_appointments_patient (
           name,
           email,
-          phone
+          phone,
+          user_id
         ),
         services!fk_appointments_service (
           name,
@@ -64,6 +66,7 @@ export async function GET() {
       .select(
         `
         id,
+        patient_id,
         appointment_date,
         start_time,
         end_time,
@@ -73,7 +76,8 @@ export async function GET() {
         patient_profiles!fk_appointments_patient (
           name,
           email,
-          phone
+          phone,
+          user_id
         ),
         services!fk_appointments_service (
           name,
@@ -104,6 +108,7 @@ export async function GET() {
         email: row.patient_profiles?.email ?? null,
         phone: row.patient_profiles?.phone ?? null,
         photo_url: row.patient_profiles?.photo_url ?? null,
+        user_id: row.patient_id ?? row.patient_profiles?.user_id ?? null,
       },
       service: {
         name: row.services?.name ?? "Unknown Service",
