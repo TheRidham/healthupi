@@ -30,6 +30,8 @@ interface SuccessModalProps {
   doctorEmail: string;
   patientEmail: string;
   onClose: () => void;
+  location: string;
+  meetingLink?: string | null;
 }
 
 export default function SuccessModal({
@@ -45,6 +47,8 @@ export default function SuccessModal({
   patientName,
   doctorEmail,
   patientEmail,
+  meetingLink,
+  location,
   onClose,
 }: SuccessModalProps) {
   const [copied, setCopied] = React.useState(false);
@@ -77,12 +81,10 @@ export default function SuccessModal({
           appointmentDate,
           durationMinutes: duration,
           mode: serviceName,
-          meetingLink: "meeting-link-placeholder",
+          meetingLink,
           appointmentId,
-          location: "clinic-address-placeholder",
+          location,
         };
-
-        console.log("email payload:", emailPayload);
 
         await Promise.all([
           sendEmailRequest("sendPatientConsultationEmail", {

@@ -74,7 +74,7 @@ export default function PublicDoctorPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const doctorId = params.id as string;
-
+  
   // ── Doctor & Services ──────────────────────────────────────────────────────
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -91,6 +91,7 @@ export default function PublicDoctorPage() {
   const [confirmationNumber, setConfirmationNumber] = useState<string | null>(
     null,
   );
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
   // OTP modal is independent of bookingStep — it overlays on top
   const [showOTPModal, setShowOTPModal] = useState(false);
 
@@ -149,6 +150,7 @@ export default function PublicDoctorPage() {
 
         setServices(mappedServices);
         setDoctor(fullProfile as DoctorProfile);
+        setMeetingLink(fullProfile?.google_meet_link);;
       } catch (err: any) {
         setError(err.message || "Failed to load doctor profile");
       } finally {
@@ -179,6 +181,7 @@ export default function PublicDoctorPage() {
     setPatientFormData(null);
     setAppointmentId(null);
     setConfirmationNumber(null);
+    setMeetingLink(null);
     setShowOTPModal(false);
     setServices((prev) => prev.map((s) => ({ ...s, selected: false })));
   };
@@ -279,18 +282,22 @@ export default function PublicDoctorPage() {
         throw new Error("User ID is required to create appointment");
       }
 
-      if(selectedServices[0].name.toLocaleLowerCase().includes('chat')) {
+      if(selectedServices[0].name.toLowerCase().includes('chat')) {
         const participants = [
           { userId: doctorId, role: "doctor" },
           { userId: user.id, role: "patient" },
         ];
 
         // create conversation with doctor and patient as participants
-        await getOrCreateConversationForAppointment({
+        const conversationId = await getOrCreateConversationForAppointment({
           appointmentId: data.data.appointmentId,
           type: "chat",
           participants,
         });
+
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+        const chatMeetingLink = `${baseUrl}/chat/${conversationId}`;
+        setMeetingLink(chatMeetingLink);
       }
 
       setAppointmentId(data.data.appointmentId);
@@ -475,7 +482,9 @@ export default function PublicDoctorPage() {
                 patientName={patientFormData?.fullName || ""}
                 patientEmail={patientFormData?.email || ""}
                 doctorEmail={doctor.email}
+                location={`${doctor.clinic_name}, ${doctor.address}, ${doctor.city}`}
                 onClose={handleReset}
+                meetingLink={meetingLink}
               />
             </>
           )}
