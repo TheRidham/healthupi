@@ -33,24 +33,36 @@ type BookingStep = null | "timeSlot" | "auth" | "form" | "payment" | "success";
 // ─── Step counter helper ──────────────────────────────────────────────────────
 function getStepLabel(step: BookingStep): string | null {
   switch (step) {
-    case null:       return "Step 1 of 5"
-    case "timeSlot": return "Step 2 of 5"
-    case "auth":     return null           // OTP modal overlays — no counter
-    case "form":     return "Step 3 of 5"
-    case "payment":  return "Step 4 of 5"
-    case "success":  return "Step 5 of 5"
-    default:         return null
+    case null:
+      return "Step 1 of 5";
+    case "timeSlot":
+      return "Step 2 of 5";
+    case "auth":
+      return null; // OTP modal overlays — no counter
+    case "form":
+      return "Step 3 of 5";
+    case "payment":
+      return "Step 4 of 5";
+    case "success":
+      return "Step 5 of 5";
+    default:
+      return null;
   }
 }
 
 // ─── Back handler helper ──────────────────────────────────────────────────────
 function getPreviousStep(step: BookingStep): BookingStep {
   switch (step) {
-    case "timeSlot": return null          // back to profile + service selection
-    case "auth":     return "timeSlot"   // back to slot picker
-    case "form":     return "timeSlot"   // back to slot picker (whether authed or not)
-    case "payment":  return "form"
-    default:         return null
+    case "timeSlot":
+      return null; // back to profile + service selection
+    case "auth":
+      return "timeSlot"; // back to slot picker
+    case "form":
+      return "timeSlot"; // back to slot picker (whether authed or not)
+    case "payment":
+      return "form";
+    default:
+      return null;
   }
 }
 
@@ -72,9 +84,12 @@ export default function PublicDoctorPage() {
   const [bookingStep, setBookingStep] = useState<BookingStep>(null);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
-  const [patientFormData, setPatientFormData] = useState<BookingFormData | null>(null);
+  const [patientFormData, setPatientFormData] =
+    useState<BookingFormData | null>(null);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
-  const [confirmationNumber, setConfirmationNumber] = useState<string | null>(null);
+  const [confirmationNumber, setConfirmationNumber] = useState<string | null>(
+    null,
+  );
   // OTP modal is independent of bookingStep — it overlays on top
   const [showOTPModal, setShowOTPModal] = useState(false);
 
@@ -83,7 +98,8 @@ export default function PublicDoctorPage() {
     const fetchDoctorDetails = async () => {
       try {
         setLoading(true);
-        const { createClientBrowser: createClient } = await import("@/lib/supabase/client");
+        const { createClientBrowser: createClient } =
+          await import("@/lib/supabase/client");
         const supabase = createClient();
 
         const { data: fullProfile, error: dbError } = await supabase
@@ -99,7 +115,8 @@ export default function PublicDoctorPage() {
 
         const { data: doctorServices, error: servicesError } = await supabase
           .from("doctor_services")
-          .select(`
+          .select(
+            `
             doctor_id,
             service_id,
             fee,
@@ -109,7 +126,8 @@ export default function PublicDoctorPage() {
               description,
               duration_minutes
             )
-          `)
+          `,
+          )
           .eq("doctor_id", doctorId);
 
         if (servicesError) {
@@ -146,7 +164,10 @@ export default function PublicDoctorPage() {
 
   const toggleService = (serviceId: string) => {
     setServices((prev) =>
-      prev.map((s) => (s.id === serviceId ? { ...s, selected: !s.selected } : s))
+      prev.map((s) => ({
+        ...s,
+        selected: s.id === serviceId ? !s.selected : false,
+      })),
     );
   };
 
@@ -279,7 +300,9 @@ export default function PublicDoctorPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 text-center">
-          <p className="text-destructive font-semibold mb-4">{error || "Doctor not found"}</p>
+          <p className="text-destructive font-semibold mb-4">
+            {error || "Doctor not found"}
+          </p>
           <Button onClick={() => router.push("/doctors")} className="w-full">
             Back to Doctors List
           </Button>
@@ -291,14 +314,13 @@ export default function PublicDoctorPage() {
   const stepLabel = getStepLabel(bookingStep);
   const isInBookingFlow = bookingStep !== null;
   // Don't show back arrow on success — show reset instead
-  const canGoBack = isInBookingFlow && bookingStep !== "success"
+  const canGoBack = isInBookingFlow && bookingStep !== "success";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
-
         {/* Back button — profile view */}
         {!isInBookingFlow && (
           <Button
@@ -323,7 +345,9 @@ export default function PublicDoctorPage() {
                 </button>
               )}
               {stepLabel && (
-                <p className="text-sm font-semibold text-foreground/60">{stepLabel}</p>
+                <p className="text-sm font-semibold text-foreground/60">
+                  {stepLabel}
+                </p>
               )}
             </div>
             {bookingStep !== "success" && (
@@ -412,24 +436,29 @@ export default function PublicDoctorPage() {
         )}
 
         {/* ── Step 5: Success ── */}
-        {bookingStep === "success" && appointmentId && confirmationNumber && selectedSlot && (
-          <>
-            <DoctorHeader doctor={doctor} />
-            <SuccessModal
-              doctorName={`${doctor.first_name} ${doctor.last_name}`}
-              serviceName={selectedServices[0]?.name || "Service"}
-              appointmentDate={selectedSlot.date}
-              appointmentTime={`${selectedSlot.startTime.slice(0, 5)} – ${selectedSlot.endTime.slice(0, 5)}`}
-              duration={selectedSlot.duration}
-              fee={selectedServices[0]?.fee || 0}
-              confirmationNumber={confirmationNumber}
-              appointmentId={appointmentId}
-              patientName={patientFormData?.fullName || ""}
-              onClose={handleReset}
-            />
-          </>
-        )}
-
+        {bookingStep === "success" &&
+          appointmentId &&
+          confirmationNumber &&
+          selectedSlot && (
+            <>
+              <DoctorHeader doctor={doctor} />
+              <SuccessModal
+                doctorName={`${doctor.first_name} ${doctor.last_name}`}
+                serviceName={selectedServices[0]?.name || "Service"}
+                appointmentDate={selectedSlot.date}
+                startTime={selectedSlot.startTime.slice(0, 5)}
+                endTime={selectedSlot.endTime.slice(0, 5)}
+                duration={selectedSlot.duration}
+                fee={selectedServices[0]?.fee || 0}
+                confirmationNumber={confirmationNumber}
+                appointmentId={appointmentId}
+                patientName={patientFormData?.fullName || ""}
+                patientEmail={patientFormData?.email || ""}
+                doctorEmail={doctor.email}
+                onClose={handleReset}
+              />
+            </>
+          )}
       </div>
     </div>
   );
