@@ -83,8 +83,8 @@ export default function DashboardPayPage() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loadingData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -92,14 +92,14 @@ export default function DashboardPayPage() {
   // ── Already paid ───────────────────────────────────────────────────────────
   if (doctor?.is_paid) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-card rounded-xl border border-border p-7 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-accent" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">Already Paid</h2>
+          <h2 className="text-lg font-semibold text-foreground">Already Paid</h2>
           <Button
-            className="mt-6 w-full"
+            className="mt-6 w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700 text-primary-foreground"
             onClick={() => router.push("/dashboard")}
           >
             Back to Dashboard
@@ -112,18 +112,18 @@ export default function DashboardPayPage() {
   // ── Success ────────────────────────────────────────────────────────────────
   if (paymentState === "success") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-card rounded-xl border border-border p-7 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-accent" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Payment Successful!
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Your profile is now live. Redirecting to dashboard…
           </p>
-          <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto mt-4" />
+          <Loader2 className="w-4 h-4 animate-spin text-primary mx-auto mt-4" />
         </div>
       </div>
     );
@@ -131,32 +131,32 @@ export default function DashboardPayPage() {
 
   // ── Main ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back */}
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors font-medium"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </button>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
           {/* Header */}
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               Complete Registration
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Pay the one-time fee to make your profile visible to patients.
             </p>
           </div>
 
           {/* Pending banner */}
           {doctor?.is_paid === false && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <XCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800">
+            <div className="flex items-start gap-3 bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3">
+              <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              <p className="text-sm text-destructive/90">
                 Your profile is currently <strong>not visible</strong> to
                 patients until payment is complete.
               </p>
@@ -164,21 +164,21 @@ export default function DashboardPayPage() {
           )}
 
           {/* Fee summary */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-center gap-2 text-gray-700 mb-3">
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium">Registration Fee</span>
+          <div className="rounded-lg border border-border bg-secondary/5 p-4">
+            <div className="flex items-center gap-2 text-foreground/80 mb-3">
+              <CreditCard className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Registration Fee</span>
             </div>
-            <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+            <div className="flex justify-between items-center border-t border-border pt-3">
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-semibold text-foreground">
                   One-time Doctor Registration
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Lifetime access · No renewals
                 </p>
               </div>
-              <p className="text-xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-foreground">
                 ₹{(AMOUNT_PAISE / 100).toLocaleString("en-IN")}
               </p>
             </div>
@@ -186,7 +186,7 @@ export default function DashboardPayPage() {
 
           {/* Choice cards */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">
+            <p className="text-sm font-semibold text-foreground mb-3">
               Choose a payment option
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -194,34 +194,34 @@ export default function DashboardPayPage() {
                 type="button"
                 onClick={() => setChoice("now")}
                 className={cn(
-                  "rounded-xl border-2 p-4 text-left transition-all",
+                  "rounded-lg border-2 p-4 text-left transition-all",
                   choice === "now"
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white",
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50 bg-card",
                 )}
               >
                 <div
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center mb-3",
-                    choice === "now" ? "bg-blue-600" : "bg-gray-100",
+                    choice === "now" ? "bg-gradient-to-br from-primary to-blue-600" : "bg-secondary/50",
                   )}
                 >
                   <Zap
                     className={cn(
                       "w-4 h-4",
-                      choice === "now" ? "text-white" : "text-gray-500",
+                      choice === "now" ? "text-primary-foreground" : "text-muted-foreground",
                     )}
                   />
                 </div>
                 <p
                   className={cn(
                     "font-semibold text-sm",
-                    choice === "now" ? "text-blue-700" : "text-gray-800",
+                    choice === "now" ? "text-primary" : "text-foreground",
                   )}
                 >
                   Pay Now
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Profile goes live immediately.
                 </p>
               </button>
@@ -230,34 +230,34 @@ export default function DashboardPayPage() {
                 type="button"
                 onClick={() => setChoice("later")}
                 className={cn(
-                  "rounded-xl border-2 p-4 text-left transition-all",
+                  "rounded-lg border-2 p-4 text-left transition-all",
                   choice === "later"
-                    ? "border-amber-500 bg-amber-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white",
+                    ? "border-accent bg-accent/5"
+                    : "border-border hover:border-accent/50 bg-card",
                 )}
               >
                 <div
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center mb-3",
-                    choice === "later" ? "bg-amber-500" : "bg-gray-100",
+                    choice === "later" ? "bg-gradient-to-br from-accent to-purple-600" : "bg-secondary/50",
                   )}
                 >
                   <Clock
                     className={cn(
                       "w-4 h-4",
-                      choice === "later" ? "text-white" : "text-gray-500",
+                      choice === "later" ? "text-accent-foreground" : "text-muted-foreground",
                     )}
                   />
                 </div>
                 <p
                   className={cn(
                     "font-semibold text-sm",
-                    choice === "later" ? "text-amber-700" : "text-gray-800",
+                    choice === "later" ? "text-accent" : "text-foreground",
                   )}
                 >
                   Pay Later
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Remind me from dashboard.
                 </p>
               </button>
@@ -266,15 +266,15 @@ export default function DashboardPayPage() {
 
           {/* Pay Later notice */}
           {choice === "later" && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+            <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-accent/90">
               Your profile will remain hidden from patients. You can return here
               anytime to complete payment.
             </div>
           )}
 
           {/* Trust badge */}
-          <div className="flex items-start gap-2 text-sm text-gray-500">
-            <ShieldCheck className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="w-4 h-4 text-accent mt-0.5 shrink-0" />
             <p>
               Secured by Razorpay. Payment info is encrypted and never stored on
               our servers.
@@ -283,7 +283,7 @@ export default function DashboardPayPage() {
 
           {/* Error */}
           {errorMsg && (
-            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 px-4 py-3 rounded-lg">
+            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 px-4 py-3 rounded-lg border border-destructive/30">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <p>{errorMsg}</p>
             </div>
@@ -292,7 +292,7 @@ export default function DashboardPayPage() {
           {/* CTA */}
           {choice === "now" && (
             <Button
-              className="w-full h-11 text-base font-medium"
+              className="w-full h-10 text-sm font-semibold bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700 text-primary-foreground"
               onClick={handlePayNow}
               disabled={isLoading}
             >
@@ -314,7 +314,7 @@ export default function DashboardPayPage() {
           {choice === "later" && (
             <Button
               variant="outline"
-              className="w-full h-11 text-base font-medium border-amber-400 text-amber-700 hover:bg-amber-50"
+              className="w-full h-10 text-sm font-semibold border-accent text-accent hover:bg-accent/5"
               onClick={() => router.push("/doctor-dashboard")}
             >
               <Clock className="w-4 h-4 mr-2" />
@@ -323,12 +323,12 @@ export default function DashboardPayPage() {
           )}
 
           {!choice && (
-            <Button className="w-full h-11 text-base" disabled>
+            <Button className="w-full h-10 text-sm" disabled>
               Select an option above to continue
             </Button>
           )}
 
-          <p className="text-xs text-center text-gray-400">
+          <p className="text-xs text-center text-muted-foreground">
             By paying, you agree to our Terms of Service and Registration
             Policy.
           </p>

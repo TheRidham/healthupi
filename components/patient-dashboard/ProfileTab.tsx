@@ -129,7 +129,7 @@ export default function ProfileTab({ onEditClick }: ProfileTabProps) {
           size="sm"
           className="gap-2"
         >
-          <Edit2 className="w-4 h-4" />
+          <Edit2 className="w-4 h-4 text-primary" />
           Edit Profile
         </Button>
       </div>
@@ -143,7 +143,7 @@ export default function ProfileTab({ onEditClick }: ProfileTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {age && (
             <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-gray-600 mt-0.5" />
+              <Calendar className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Age</p>
                 <p className="text-gray-900 font-medium">{age} years</p>
@@ -183,7 +183,7 @@ export default function ProfileTab({ onEditClick }: ProfileTabProps) {
         <div className="space-y-4">
           {profile.phone && (
             <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-gray-600" />
+              <Phone className="w-5 h-5 text-accent" />
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
                 <p className="text-gray-900">{profile.phone}</p>
@@ -192,7 +192,7 @@ export default function ProfileTab({ onEditClick }: ProfileTabProps) {
           )}
 
           <div className="flex items-center gap-3">
-            <Mail className="w-5 h-5 text-gray-600" />
+            <Mail className="w-5 h-5 text-primary" />
             <div>
               <p className="text-sm text-gray-500">Email</p>
               <p className="text-gray-900">{profile.email}</p>
@@ -201,7 +201,7 @@ export default function ProfileTab({ onEditClick }: ProfileTabProps) {
 
           {(profile.address || profile.city || profile.state) && (
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-gray-600 mt-0.5" />
+              <MapPin className="w-5 h-5 text-accent mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Address</p>
                 <p className="text-gray-900">

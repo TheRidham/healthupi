@@ -127,7 +127,7 @@ export default function ProfileEditTab({
   if (!formData) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -135,16 +135,16 @@ export default function ProfileEditTab({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div className="text-red-800 text-sm">{error}</div>
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex gap-3">
+          <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+          <div className="text-destructive text-sm">{error}</div>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex gap-3">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div className="text-green-800 text-sm">Profile updated successfully!</div>
+        <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex gap-3">
+          <CheckCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+          <div className="text-accent text-sm">Profile updated successfully!</div>
         </div>
       )}
 

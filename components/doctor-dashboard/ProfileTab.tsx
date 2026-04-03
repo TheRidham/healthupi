@@ -76,7 +76,7 @@ export default function ProfileTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function ProfileTab() {
   if (error || !profile) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <AlertCircle className="w-8 h-8 text-red-400" />
+        <AlertCircle className="w-8 h-8 text-destructive" />
         <p className="text-gray-500">{error ?? "Profile not found"}</p>
         <Button variant="outline" asChild>
           <Link href="/doctor/onboarding">Complete your profile</Link>
@@ -219,7 +219,7 @@ export default function ProfileTab() {
                 asChild
               >
                 <Link href="/doctor/onboarding">
-                  <Pencil className="w-3.5 h-3.5" /> Edit
+                  <Pencil className="w-3.5 h-3.5 text-primary" /> Edit
                 </Link>
               </Button>
             </div>
@@ -553,7 +553,7 @@ function Stat({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-gray-400">{icon}</span>
+      <span className="text-primary">{icon}</span>
       <div>
         <p className="text-xs text-gray-400">{label}</p>
         <p className="text-sm font-semibold text-gray-800">{value}</p>
@@ -573,7 +573,7 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="text-gray-400 mt-0.5 shrink-0">{icon}</span>
+      <span className="text-accent mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0">
         <p className="text-xs text-gray-400">{label}</p>
         {children}

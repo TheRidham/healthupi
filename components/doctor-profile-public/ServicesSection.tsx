@@ -33,62 +33,62 @@ export default function ServicesSection({
   onCancel,
 }: ServicesSectionProps) {
   return (
-    <Card className="mb-8 p-6 sm:p-8 border-primary/30 bg-card">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Ready to book?
+    <Card className="mb-6 p-5 sm:p-6 border-border bg-gradient-to-br from-card via-card to-primary/5 shadow-md">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-foreground mb-1">
+          Select a Service
         </h2>
-        <p className="text-foreground/70">
-          Select a service and schedule your appointment
+        <p className="text-xs text-muted-foreground">
+          Choose the service you need and we'll find the perfect time for your appointment
         </p>
       </div>
 
       {/* Services Grid */}
-      <div className="mb-8 grid sm:grid-cols-2 gap-4">
+      <div className="mb-6 grid sm:grid-cols-2 gap-3">
         {services.map((service) => (
           <div
             key={service.id}
             onClick={() => onToggleService(service.id)}
-            className={`p-4 rounded-lg border-2 cursor-pointer transition ${
+            className={`p-3.5 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
               service.selected
-                ? "border-primary bg-primary/10"
-                : "border-secondary/30 bg-secondary/5 hover:border-primary/50 hover:bg-primary/5"
+                ? "border-primary bg-gradient-to-br from-primary/15 to-primary/5 shadow-sm"
+                : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3">
               <div
-                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all font-semibold text-xs ${
                   selectedServices.find((s) => s.id === service.id)
-                    ? "border-primary bg-primary"
-                    : "border-secondary/50"
+                    ? "border-primary bg-gradient-to-br from-primary to-blue-600 text-primary-foreground"
+                    : "border-muted-foreground/40 bg-transparent"
                 }`}
               >
                 {selectedServices.find((s) => s.id === service.id) && (
-                  <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                  <span>✓</span>
                 )}
               </div>
               <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-2 mb-1">
                   {React.createElement(getServiceIcon(service.iconType), {
-                    className: `w-5 h-5 ${
-                      service.selected ? "text-primary" : "text-foreground/60"
+                    className: `w-4 h-4 ${
+                      service.selected ? "text-primary" : "text-muted-foreground"
                     }`,
                   })}
-                  <h4 className="font-semibold text-foreground">
+                  <h4 className="font-semibold text-foreground text-sm">
                     {service.name}
                   </h4>
                 </div>
-                <p className="text-sm text-foreground/60 mb-2">
+                <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
                   {service.description}
                 </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-xs text-foreground/50">
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Clock className="w-3 h-3" />
-                    {service.duration} mins
+                    <span className="font-medium">{service.duration} mins</span>
                   </div>
                   {service.fee && (
-                    <span className="text-sm font-semibold text-primary">
-                      ₹{service.fee}
+                    <span className="text-xs font-bold text-primary">
+                      ₹{service.fee.toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -99,24 +99,24 @@ export default function ServicesSection({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-4">
+      <div className="flex gap-2">
         <Button
           onClick={onProceed}
           disabled={selectedServices.length === 0 || isLoading}
-          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 text-base"
+          className="flex-1 bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700 text-primary-foreground font-semibold py-5 text-sm shadow-md disabled:opacity-50"
         >
           {isLoading ? (
             <>
-              <LoaderCircle className="w-5 h-5 animate-spin mr-2" />
+              <LoaderCircle className="w-4 h-4 animate-spin mr-1.5" />
               Processing...
             </>
           ) : (
             <>
-              Book Appointment
+              Continue to Booking
               {selectedServices.length > 0 && (
                 <>
-                  <span className="mx-2">•</span>
-                  <Badge className="bg-primary-foreground text-primary">
+                  <span className="mx-1.5">•</span>
+                  <Badge className="bg-primary-foreground text-primary font-semibold text-[10px]">
                     {selectedServices.length}
                   </Badge>
                 </>
@@ -127,7 +127,7 @@ export default function ServicesSection({
         <Button
           variant="outline"
           onClick={onCancel}
-          className="px-6 py-5.5"
+          className="px-5 py-5 border-border hover:bg-secondary/50 text-sm"
         >
           Cancel
         </Button>

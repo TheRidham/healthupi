@@ -314,7 +314,7 @@ export default function PublicDoctorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
         <div className="text-center">
           <LoaderCircle className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-foreground/70">Loading doctor profile...</p>
@@ -325,12 +325,12 @@ export default function PublicDoctorPage() {
 
   if (error || !doctor) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-8 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 text-center border-border bg-card">
           <p className="text-destructive font-semibold mb-4">
             {error || "Doctor not found"}
           </p>
-          <Button onClick={() => router.push("/doctors")} className="w-full">
+          <Button onClick={() => router.push("/doctors")} className="w-full bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700">
             Back to Doctors List
           </Button>
         </Card>
@@ -346,33 +346,34 @@ export default function PublicDoctorPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Back button — profile view */}
         {!isInBookingFlow && (
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-6 text-primary hover:text-primary/80"
+            className="mb-6 text-primary hover:text-primary/80 hover:bg-primary/5 font-medium gap-1.5 text-sm"
           >
-            <ArrowLeft size={20} /> Back
+            <ArrowLeft size={16} /> Back
           </Button>
         )}
 
         {/* Step indicator — booking flow */}
         {isInBookingFlow && bookingStep !== "auth" && (
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex items-center justify-between bg-gradient-to-r from-primary/5 via-transparent to-accent/5 rounded-lg p-3 border border-border/50">
             <div className="flex items-center gap-2">
               {canGoBack && (
                 <button
                   onClick={handleBack}
-                  className="p-1 hover:bg-secondary rounded-lg transition"
+                  className="p-1.5 hover:bg-secondary/70 rounded-lg transition-colors"
+                  title="Go back"
                 >
-                  <ArrowLeft size={20} className="text-primary" />
+                  <ArrowLeft size={16} className="text-primary" />
                 </button>
               )}
               {stepLabel && (
-                <p className="text-sm font-semibold text-foreground/60">
+                <p className="text-xs font-semibold text-foreground/70">
                   {stepLabel}
                 </p>
               )}
@@ -380,9 +381,9 @@ export default function PublicDoctorPage() {
             {bookingStep !== "success" && (
               <button
                 onClick={handleReset}
-                className="text-sm text-foreground/60 hover:text-foreground underline"
+                className="text-xs text-foreground/60 hover:text-destructive font-medium transition-colors"
               >
-                Cancel Booking
+                Cancel
               </button>
             )}
           </div>

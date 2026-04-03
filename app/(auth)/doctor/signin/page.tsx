@@ -99,7 +99,7 @@ export default function SignInForm() {
               </div>
 
               <Link
-                className="text-blue-700 text-xs text-right hover:underline"
+                className="text-primary text-xs text-right hover:underline font-medium"
                 href={"/doctor/forget-password"}
               >
                 <p className="text-right">Forget Password</p>
@@ -107,14 +107,14 @@ export default function SignInForm() {
 
               {/* Error Message */}
               {error && (
-                <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
                   {error}
                 </p>
               )}
 
               {/* Success Message */}
               {success && (
-                <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                <p className="text-sm text-accent bg-accent/10 border border-accent/30 rounded-md px-3 py-2">
                   {success}
                 </p>
               )}

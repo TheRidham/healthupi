@@ -72,15 +72,15 @@ const PatientHome = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10">
       {/* Top Nav */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-gradient-to-r from-primary/5 via-card to-accent/5 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-green-600 flex items-center justify-center">
-              <Heart className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center shadow-md">
+              <Heart className="w-4 h-4 text-accent-foreground" />
             </div>
-            <span className="font-semibold text-gray-900 text-sm">
+            <span className="font-bold text-foreground text-sm">
               Patient Dashboard
             </span>
           </div>
@@ -89,9 +89,9 @@ const PatientHome = () => {
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
-            className="text-gray-500 hover:text-gray-700 gap-1.5"
+            className="text-muted-foreground hover:text-foreground hover:bg-secondary/50 gap-1.5 font-medium"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 text-accent" />
             Sign out
           </Button>
         </div>
@@ -99,7 +99,7 @@ const PatientHome = () => {
 
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Tab Switcher */}
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit mb-6">
+        <div className="flex gap-2 bg-card border border-border rounded-lg p-1.5 w-fit mb-6 shadow-sm">
           <TabButton
             active={activeTab === 'profile'}
             onClick={() => setActiveTab('profile')}
@@ -147,13 +147,15 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+      className={`px-4 py-2 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${
         active
-          ? 'bg-gray-100 text-gray-900'
-          : 'text-gray-600 hover:text-gray-900'
+          ? "bg-gradient-to-r from-primary to-blue-600 text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
       }`}
     >
-      {icon}
+      <span className={active ? "text-primary-foreground" : "text-primary"}>
+        {icon}
+      </span>
       {label}
     </button>
   )

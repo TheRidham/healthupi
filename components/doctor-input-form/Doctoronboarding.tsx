@@ -207,14 +207,14 @@ export default function DoctorOnboardingPage() {
   const isPaymentStep = currentStep === PAYMENT_STEP;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-foreground">
             Doctor Registration
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">
+          <p className="text-muted-foreground mt-1 text-sm">
             Step {currentStep + 1} of {STEPS.length}
           </p>
         </div>
@@ -227,17 +227,17 @@ export default function DoctorOnboardingPage() {
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors
                   ${
                     idx < currentStep
-                      ? "bg-green-500 text-white"
+                      ? "bg-accent text-accent-foreground"
                       : idx === currentStep
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-500"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                   }`}
               >
                 {idx < currentStep ? <Check className="w-4 h-4" /> : idx + 1}
               </div>
               <span
                 className={`text-xs mt-1 font-medium hidden sm:block
-                ${idx === currentStep ? "text-blue-600" : "text-gray-400"}`}
+                ${idx === currentStep ? "text-primary" : "text-muted-foreground"}`}
               >
                 {step.title}
               </span>
@@ -245,15 +245,20 @@ export default function DoctorOnboardingPage() {
           ))}
         </div>
 
-        <Progress value={progressValue} className="mb-6 h-1.5" />
+        <div className="mb-6 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-primary to-blue-600 transition-all duration-300" 
+            style={{ width: `${progressValue}%` }}
+          />
+        </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+        <div className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-foreground">
               {STEPS[currentStep].title}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {STEPS[currentStep].description}
             </p>
           </div>
@@ -275,14 +280,14 @@ export default function DoctorOnboardingPage() {
           )}
 
           {error && (
-            <p className="mt-4 text-sm text-red-500 bg-red-50 px-4 py-3 rounded-lg">
+            <p className="mt-4 text-sm text-destructive bg-destructive/10 border border-destructive/30 px-4 py-3 rounded-lg">
               {error}
             </p>
           )}
 
           {/* Navigation — hidden on payment step */}
           {!isPaymentStep && (
-            <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
+            <div className="flex justify-between mt-8 pt-6 border-t border-border">
               <Button
                 variant="outline"
                 onClick={back}
@@ -296,7 +301,7 @@ export default function DoctorOnboardingPage() {
                 <Button
                   onClick={createAccountAndSaveProfile}
                   disabled={isProcessing}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700 text-primary-foreground"
                 >
                   {isProcessing
                     ? "Creating account…"
@@ -304,7 +309,7 @@ export default function DoctorOnboardingPage() {
                   {!isProcessing && <ChevronRight className="w-4 h-4" />}
                 </Button>
               ) : (
-                <Button onClick={next} className="flex items-center gap-1">
+                <Button onClick={next} className="flex items-center gap-1 bg-gradient-to-r from-primary to-blue-600 hover:from-primary hover:to-blue-700 text-primary-foreground">
                   Next <ChevronRight className="w-4 h-4" />
                 </Button>
               )}

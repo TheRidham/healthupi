@@ -76,7 +76,7 @@ export default function AppointmentsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -152,7 +152,7 @@ export default function AppointmentsTab() {
 
         {upcomingAppointments.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <Calendar className="w-12 h-12 text-primary/30 mx-auto mb-3" />
             <p className="text-gray-500">No upcoming appointments</p>
           </div>
         ) : (
@@ -285,21 +285,21 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div className="flex items-center gap-2 text-sm text-gray-700">
-          <Calendar className="w-4 h-4 flex-shrink-0 text-gray-500" />
+          <Calendar className="w-4 h-4 flex-shrink-0 text-primary" />
           {formattedDate}
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-700">
-          <Clock className="w-4 h-4 flex-shrink-0 text-gray-500" />
+          <Clock className="w-4 h-4 flex-shrink-0 text-accent" />
           {appointment.appointment_time}
           {appointment.duration && ` (${appointment.duration} min)`}
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-700">
-          <MapPin className="w-4 h-4 flex-shrink-0 text-gray-500" />
+          <MapPin className="w-4 h-4 flex-shrink-0 text-primary" />
           {isChatConsultation ? "Chat Consultation" : appointment.consultation_type === "online" ? "Online" : "In-Clinic"}
         </div>
         {appointment.doctor.phone && (
           <div className="flex items-center gap-2 text-sm text-gray-700">
-            <Phone className="w-4 h-4 flex-shrink-0 text-gray-500" />
+            <Phone className="w-4 h-4 flex-shrink-0 text-accent" />
             {appointment.doctor.phone}
           </div>
         )}
@@ -319,7 +319,7 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
             <Button
               onClick={handleStartChat}
               disabled={chatLoading}
-              className="gap-2 flex-1 bg-blue-600 hover:bg-blue-700"
+              className="gap-2 flex-1 bg-primary hover:bg-primary/90"
             >
               {chatLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -335,7 +335,7 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
             </Button>
           )}
           <Button variant="ghost" size="sm" className="gap-1">
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4 text-primary" />
           </Button>
         </div>
       )}
