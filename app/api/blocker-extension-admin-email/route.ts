@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
   // Parse body
   const body = await req.json();
 
-  const { userEmail, requestedSite } = body;
+  const { userEmail, requestedSite, email } = body;
 
   // Validation
   if (
@@ -135,15 +135,8 @@ export async function POST(req: NextRequest) {
     const res = await resend.emails.send({
       from: `Extension Alerts <extension@healthbase.app>`,
       to: adminEmail || "",
-      subject: `Access Request: ${requestedSite}`,
-      html: `
-        <p>User <strong>${userEmail}</strong> is requesting access to:</p>
-        <p>
-          <a href="${requestedSite}">
-            ${requestedSite}
-          </a>
-        </p>
-      `,
+      subject: email.subject,
+      html: email.html
     });
 
     // Expire after 24h
