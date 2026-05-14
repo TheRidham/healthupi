@@ -11,9 +11,16 @@ const kv = createClient({
   token: process.env.HEALTHUPI_KV_REST_API_TOKEN!,
 });
 
-// Your Chrome extension origin
-const MY_EXTENSION_ORIGIN =
-  'chrome-extension://pdkicfnlklkpfllgolfbdjflpgmjomhk';
+// Your Chrome extension IDs (comma-separated in env)
+const EXTENSION_IDS = (process.env.EXTENSION_IDS || '')
+  .split(',')
+  .map(id => id.trim())
+  .filter(Boolean);
+
+// Build allowed origins from extension IDs
+const ALLOWED_EXTENSION_ORIGINS = EXTENSION_IDS.map(
+  id => `chrome-extension://${id}`
+);
 
 // Rate limiter
 const ratelimit = new Ratelimit({
@@ -24,11 +31,16 @@ const ratelimit = new Ratelimit({
 // ==========================================
 // OPTIONS (CORS PREFLIGHT)
 // ==========================================
-export async function OPTIONS() {
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  
+  // Check if origin is allowed
+  const isAllowedOrigin = origin && ALLOWED_EXTENSION_ORIGINS.includes(origin);
+
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': MY_EXTENSION_ORIGIN,
+      'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '',
       'Access-Control-Allow-Methods': 'OPTIONS, POST',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
@@ -39,12 +51,17 @@ export async function OPTIONS() {
 // POST
 // ==========================================
 export async function POST(req: NextRequest) {
-  // Base headers
+  const adminEmail = process.env.EXTENSION_ADMIN_EMAIL;
+  
+  // Get request origin
+  const origin = req.headers.get('origin');
+  
+  // Check if origin is allowed
+  const isAllowedOrigin = origin && ALLOWED_EXTENSION_ORIGINS.includes(origin);
 
-  const adminEmail = process.env.EXTENSION_ADMIN_EMAIL
-
+  // Base headers with proper origin
   const headers = {
-    'Access-Control-Allow-Origin': MY_EXTENSION_ORIGIN,
+    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : '',
     'Access-Control-Allow-Methods': 'OPTIONS, POST',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
@@ -52,9 +69,7 @@ export async function POST(req: NextRequest) {
   // ==========================================
   // LAYER 1: STRICT ORIGIN CHECKING
   // ==========================================
-  const origin = req.headers.get('origin');
-
-  if (origin !== MY_EXTENSION_ORIGIN) {
+  if (!isAllowedOrigin) {
     return NextResponse.json(
       { error: 'Forbidden' },
       {
